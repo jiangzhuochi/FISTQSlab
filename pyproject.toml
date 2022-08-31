@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "fistqslab"
+version = "0.1.0"
+description = ""
+authors = ["jiangzhuochi <1053067021@qq.com>"]
+readme = "README.md"
+packages = [{ include = "fistqslab", from = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+lab = "fistqslab.__main__:main"
