@@ -7,7 +7,12 @@ readme = "README.md"
 packages = [{ include = "fistqslab", from = "src" }]
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "==3.10.*"
+Flask = "^2.2.2"
+numpy = "^1.23.2"
+pandas = "^1.4.3"
+matplotlib = "^3.5.3"
+scipy = "^1.9.1"
 
 
 [tool.poetry.group.dev.dependencies]
