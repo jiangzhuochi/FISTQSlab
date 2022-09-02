@@ -1,7 +1,11 @@
+import json
 import re
 from datetime import datetime
 
-from flask import Flask
+from flask import Flask, request
+
+from .option_pricing.euro_option_bs import euro_option_bs_series
+from .option_pricing.option_model import EuropeanOptionModel
 
 app = Flask(__name__)
 
@@ -27,3 +31,11 @@ def hello_there(name):
 
     content = "Hello there, " + clean_name + "! It's " + formatted_now
     return content
+
+
+@app.route("/option_pricing/euro_option_bs", methods=["POST"])
+def euro_option_bs():
+    print(request.form)
+    params_dict = EuropeanOptionModel.parse_obj(request.form).dict()
+    df = euro_option_bs_series(**params_dict)
+    return df.to_json()

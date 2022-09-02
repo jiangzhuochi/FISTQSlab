@@ -1,7 +1,10 @@
 from abc import ABC, abstractmethod
+from typing import Literal
+
+FIELD = Literal["price", "delta", "gamma", "theta", "vega"]
 
 
-class OptionType:
+class OptionType(ABC):
     """期权种类: 看涨(认购)或看跌(认沽)"""
 
     pass
