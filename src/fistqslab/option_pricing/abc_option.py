@@ -1,6 +1,9 @@
 from abc import ABC, abstractmethod
 from typing import Literal
 
+common_field = ["price", "delta", "gamma", "theta", "vega"]
+# Unpack operator in subscript requires Python 3.11 or newer
+# FIELD = Literal[*common_field]
 FIELD = Literal["price", "delta", "gamma", "theta", "vega"]
 
 

@@ -1,13 +1,11 @@
 from dataclasses import dataclass, replace
+from typing import cast
 
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
 
-from .abc_option import FIELD, BaseOption, Call, Put
-
-# TODO: 欧式期权BS公式定价接入flask, 设计api
-
+from .abc_option import FIELD, BaseOption, Call, Put, common_field
 
 """notes:
 为了简便, 暂时将欧式期权的定价与连续BS公式定价耦合。
@@ -97,9 +95,36 @@ class EuropeanPutOptionBS(EuropeanOptionBS, Put):
         return self.S * np.sqrt(self.T) * self.n(self.d1)
 
 
-# 「开始计算」时使用, 返回单只期权(包括看涨和看跌)价格和所有希腊字母
-def euro_option_bs():
-    pass
+def euro_option_bs(S: float, L, T, r, sigma) -> dict[str, pd.DataFrame]:
+    """「开始计算」时使用, 返回:
+    单只期权(包括看涨和看跌)的价格和所有希腊字母, 用于表格
+    系列期权(包括看涨和看跌)的价格和所有希腊字母, 用于图片
+    """
+
+    c = EuropeanCallOptionBS(S=S, L=L, T=T, r=r, sigma=sigma)
+    p = EuropeanPutOptionBS(S=S, L=L, T=T, r=r, sigma=sigma)
+
+    def _get_field(option: EuropeanOptionBS) -> dict:
+        return {
+            "price": option.price,
+            "delta": option.delta,
+            "gamma": option.gamma,
+            "theta": option.theta,
+            "vega": option.vega,
+        }
+
+    all_data = {}
+
+    # 单只期权
+    all_data["sheet"] = pd.DataFrame(
+        {"Call": _get_field(c), "Put": _get_field(p)}
+    ).applymap(lambda n: np.around(n, 4))
+
+    # 系列期权
+    for _field in common_field:
+        all_data[_field] = euro_option_bs_series(S, L, T, r, sigma, cast(FIELD, _field))
+
+    return all_data
 
 
 # 绘图时使用, 返回标的价格不同的一系列期权(包括看涨和看跌)的价格或某个希腊字母
@@ -130,8 +155,7 @@ def euro_option_bs_series(S: float, L, T, r, sigma, field: FIELD) -> pd.DataFram
     c = EuropeanCallOptionBS(S=S, L=L, T=T, r=r, sigma=sigma)
     p = EuropeanPutOptionBS(S=S, L=L, T=T, r=r, sigma=sigma)
 
-    low, high = np.floor(S - 10), np.ceil(S + 10)
-    S_ls = np.arange(low, high, 0.05)
+    S_ls = np.arange(S - 10, S + 10, 0.1)
     C_ls = map(lambda S: getattr(replace(c, S=S), field), S_ls)
     P_ls = map(lambda S: getattr(replace(p, S=S), field), S_ls)
     df = (

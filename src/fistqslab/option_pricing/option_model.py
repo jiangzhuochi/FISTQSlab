@@ -1,7 +1,5 @@
 from pydantic import BaseModel
 
-from .abc_option import FIELD
-
 
 class EuropeanOptionModel(BaseModel):
     """欧式期权模型类, 用于反序列化自动转换数据格式"""
@@ -11,7 +9,6 @@ class EuropeanOptionModel(BaseModel):
     T: float  # 有效期(单位: 年), 期权有效天数与365的比值
     r: float  # 连续复利无风险利率, 若年复利无风险利率为r0, 则r = ln(1+r0)
     sigma: float  # 年化标准差
-    field: FIELD  # 要计算的指标
 
 
 if __name__ == "__main__":
@@ -21,7 +18,6 @@ if __name__ == "__main__":
         "T": 30 / 365,
         "r": 0.02,
         "sigma": 0.2,
-        "field": "delta",
     }
     e = EuropeanOptionModel.parse_obj(kwargs)
     print(e.dict())
