@@ -35,6 +35,14 @@ class EuropeanOptionBS(BaseOption):
         self.N = norm.cdf
         self.n = norm.pdf
 
+    @property
+    def gamma(self):
+        return self.n(self.d1) / (self.S * self.sigma * np.sqrt(self.T))
+
+    @property
+    def vega(self):
+        return self.S * np.sqrt(self.T) * self.n(self.d1)
+
 
 @dataclass
 class EuropeanCallOptionBS(EuropeanOptionBS, Call):
@@ -51,19 +59,11 @@ class EuropeanCallOptionBS(EuropeanOptionBS, Call):
         return self.N(self.d1)
 
     @property
-    def gamma(self):
-        return self.n(self.d1) / (self.S * self.sigma * np.sqrt(self.T))
-
-    @property
     def theta(self):
         return -(
             self.S * self.sigma * self.n(self.d1) / (2 * np.sqrt(self.T))
             + self.L * self.r * np.exp(-self.r * self.T) * self.N(self.d2)
         )
-
-    @property
-    def vega(self):
-        return self.S * np.sqrt(self.T) * self.n(self.d1)
 
 
 @dataclass
@@ -81,18 +81,10 @@ class EuropeanPutOptionBS(EuropeanOptionBS, Put):
         return self.N(self.d1) - 1
 
     @property
-    def gamma(self):
-        return self.n(self.d1) / (self.S * self.sigma * np.sqrt(self.T))
-
-    @property
     def theta(self):
         return self.L * self.r * np.exp(-self.r * self.T) * self.N(
             -self.d2
         ) - self.S * self.sigma * self.n(self.d1) / (2 * np.sqrt(self.T))
-
-    @property
-    def vega(self):
-        return self.S * np.sqrt(self.T) * self.n(self.d1)
 
 
 def euro_option_bs(S: float, L, T, r, sigma) -> dict[str, pd.DataFrame]:
@@ -118,7 +110,7 @@ def euro_option_bs(S: float, L, T, r, sigma) -> dict[str, pd.DataFrame]:
     # 单只期权
     all_data["sheet"] = pd.DataFrame(
         {"Call": _get_field(c), "Put": _get_field(p)}
-    ).applymap(lambda n: np.around(n, 4))
+    ).round(4)
 
     # 系列期权
     for _field in common_field:
@@ -161,7 +153,7 @@ def euro_option_bs_series(S: float, L, T, r, sigma, field: FIELD) -> pd.DataFram
     df = (
         pd.DataFrame({"call": C_ls, "put": P_ls}, index=S_ls)
         .rename(index=lambda n: f"{n:.2f}")
-        .applymap(lambda n: np.around(n, 4))
+        .round(4)
     )
 
     return df

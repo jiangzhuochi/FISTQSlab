@@ -14,7 +14,6 @@ kwargs = {
     "T": 30 / 365,
     "r": np.log(1 + 0.02),
     "sigma": 0.2,
-    "field": "delta",
 }
 # df = euro_option_bs_series(**kwargs)
 # print(df.index)
@@ -23,8 +22,8 @@ class DataFrameJSONEncoder(json.JSONEncoder):
         return df.to_dict()
 
 
-single_op, series_op = euro_option_bs(**kwargs)
-print(single_op)
-json_str = json.dumps(series_op, cls=DataFrameJSONEncoder)
-di = json.loads(json_str)
-print(di["price"])
+data = euro_option_bs(**kwargs)
+print(data)
+# json_str = json.dumps(series_op, cls=DataFrameJSONEncoder)
+# di = json.loads(json_str)
+# print(di["price"])

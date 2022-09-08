@@ -1,6 +1,7 @@
 import json
 from functools import partial
 
+import numexpr as ne
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
@@ -58,9 +59,11 @@ def get_stock_path(
     _half_ep = np.random.normal(size=((m_step * u) + 1, n_path))
     # 对偶变量法, 加上随机数的相反数
     epsilons = np.hstack([_half_ep, -_half_ep])
-    # 直接用运算符, df 的 applymap 时间要几百倍
-    multiplier = np.exp(
-        (mu - 0.5 * vol**2) * delta_t + vol * np.sqrt(delta_t) * epsilons
+    # 耗时大约减少了 15%
+    multiplier = ne.evaluate(
+        """exp(
+        (mu - 0.5 * vol**2) * delta_t + vol * sqrt(delta_t) * epsilons
+    )"""
     )
     # 第一行赋值为 1, 用作期初价格的乘子
     multiplier[0] = 1
@@ -70,5 +73,5 @@ def get_stock_path(
     return stock_path
 
 
-# 1 年股价路径
-get_stock_path_1y = partial(get_stock_path, u=1, m_step=250)
+# 1 年股价路径(单位时间为天, 共250天, 每天240步)
+get_stock_path_1y = partial(get_stock_path, u=250, m_step=240)
