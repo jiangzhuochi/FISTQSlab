@@ -1,10 +1,12 @@
 import json
 from functools import partial
+from pathlib import Path
+from typing import Callable, Generator
 
 import numexpr as ne
 import numpy as np
-import numpy.typing as npt
 import pandas as pd
+from nptyping import Float64, Int, NDArray, Shape
 
 
 class DataFrameJSONEncoder(json.JSONEncoder):
@@ -16,9 +18,10 @@ class DataFrameJSONEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, o)
 
 
+# TODO: 需要转置
 def get_stock_path(
     S0: float, mu: float, vol: float, u: int, m_step: int, n_path: int = 100000
-) -> npt.NDArray[np.float64]:
+) -> NDArray[Shape["*, *"], Float64]:
     """BS 公式生成股价路径。
 
     Parameters
@@ -75,3 +78,22 @@ def get_stock_path(
 
 # 1 年股价路径(单位时间为天, 共250天, 每天240步)
 get_stock_path_1y = partial(get_stock_path, u=250, m_step=240)
+
+PriceGenFunc = Callable[[], Generator[NDArray[Shape["*"], Float64], None, None]]
+
+
+def get_price_path_generator_func(csv_path: Path) -> PriceGenFunc:
+    """返回一个迭代器函数 g, 调用函数 g, 返回价格路径的迭代器
+
+    Parameters
+    -------
+    csv_path : Path
+        csv 路径, 该文件每行存储一条价格路径
+    """
+
+    def g() -> Generator[NDArray[Shape["*"], Float64], None, None]:
+        with open(csv_path) as f:
+            for line in f:
+                yield np.array(line.split(","), dtype=float)
+
+    return g
