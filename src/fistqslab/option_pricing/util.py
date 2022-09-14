@@ -61,8 +61,10 @@ def get_stock_path(
     # 产生标准正态分布随机数
     _half_ep = np.random.normal(size=((m_step * u) + 1, n_path))
     # 对偶变量法, 加上随机数的相反数
+    # TODO: 使用itertools.chain.from_iterable交错拼接路径
+    # 好处是提取少于2*n_path个路径也可以有方差缩减的效果
     epsilons = np.hstack([_half_ep, -_half_ep])
-    # 耗时大约减少了 15%
+    # 耗时大约减少了 15% (存疑)
     multiplier = ne.evaluate(
         """exp(
         (mu - 0.5 * vol**2) * delta_t + vol * sqrt(delta_t) * epsilons

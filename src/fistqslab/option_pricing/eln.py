@@ -58,8 +58,6 @@ class BaseELN(BaseOption, MonteCarlo):
     issue_price: float
     # 年化息率(根据 T 和 issue_price 计算)
     yield_: float = field(init=False)
-    # 名义金额(票据面值)
-    nominal_amount: float = 1e6
     # 无风险收益率(默认值为1年期存款基准利率转化为连续复利收益率)
     r: float = np.log(1 + 0.015)
 
@@ -71,6 +69,38 @@ class BaseELN(BaseOption, MonteCarlo):
         self.strike_price = {}
         for k, v in self.S0.items():
             self.strike_price[k] = v * self.strike
+
+        # # 年化息率
+        # self.yield_ = (1 / self.issue_price - 1) * 365 / self.T
+
+    @property
+    def discount(self):
+        """折现因子"""
+        return 1 / (1 + self.r) ** (self.T / 365)
+
+    def delta(self):
+        pass
+
+    def gamma(self):
+        pass
+
+    def vega(self):
+        pass
+
+    def theta(self):
+        pass
+
+
+@dataclass
+class ELN(BaseELN):
+    """折价建仓"""
+
+    # 名义本金(票据面值)
+    nominal_amount: float = 1e6
+
+    def __post_init__(self):
+
+        super().__post_init__()
 
         # 年化息率
         self.yield_ = (1 / self.issue_price - 1) * 365 / self.T
@@ -125,19 +155,31 @@ class BaseELN(BaseOption, MonteCarlo):
         else:
             raise NotImplemented
 
+
+@dataclass
+class RELN(BaseELN):
+    """折价建仓"""
+
+    # key: 标的代码, value: 标的数量
+    number_of_securities: dict[str, int] = field(kw_only=True)
+    # 名义本金(起始日股票市场价值)
+    nominal_amount: float = field(init=False)
+
+    def __post_init__(self):
+
+        super().__post_init__()
+
+        assert self.S0.keys() == self.number_of_securities.keys()
+        # 名义本金, 目前只支持单只标的
+        if len(self.S0) == 1:
+            key = next(iter(self.S0.keys()))
+            self.nominal_amount = self.S0[key] * self.number_of_securities[key]
+        else:
+            raise NotImplemented
+
+        # 年化息率
+        self.yield_ = (self.issue_price - 1) * 365 / self.T
+
     @property
-    def discount(self):
-        """折现因子"""
-        return 1 / (1 + self.r) ** (self.T / 365)
-
-    def delta(self):
-        pass
-
-    def gamma(self):
-        pass
-
-    def vega(self):
-        pass
-
-    def theta(self):
-        pass
+    def price(self):
+        return super().price
