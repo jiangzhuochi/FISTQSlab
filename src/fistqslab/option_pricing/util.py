@@ -97,3 +97,30 @@ def get_price_path_generator_func(csv_path: Path) -> PriceGenFunc:
                 yield np.array(line.split(","), dtype=float)
 
     return g
+
+
+def cmp_dict_all_items(d1: dict, d2: dict, op: Callable):
+    """比较两个键相同的字典, 它们的值是否全部符合大小关系
+
+    Parameters
+    ----------
+    d1 : dict
+        左边的字典
+    d2 : dict
+        右边的字典
+    op : Callable
+        比较符号, operator 库里的大小函数
+
+    Returns
+    -------
+    bool
+        是否满足给定条件
+    """
+
+    assert d1
+    assert d1.keys() == d2.keys()
+
+    for key in d1:
+        if not op(d1[key], d2[key]):
+            return False
+    return True
