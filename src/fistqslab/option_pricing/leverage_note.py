@@ -1,14 +1,11 @@
-from abc import abstractmethod
 from dataclasses import dataclass, field
-from functools import cached_property
-from operator import ge, gt
 
 import numpy as np
 from nptyping import Float64, NDArray, Shape
 
 from .abc_option import BaseOption
 from .mc import MonteCarlo
-from .util import cmp_dict_all_items, get_one_item_dict_kv
+from .util import get_one_item_dict_kv
 
 
 @dataclass
@@ -40,7 +37,7 @@ class LeverageNote(BaseOption, MonteCarlo):
     def price(self):
         ret_pnl = np.empty(self.number_of_paths, dtype=float)
         for i, arr in self.get_zip_one_path_iterator():
-            ret_pnl[i] = self.do_pricing_logic_in_one_path(i, arr[:, : self.T + 1])
+            ret_pnl[i] = self.do_pricing_logic_in_one_path(i, arr[:, : self.TD + 1])
         return np.mean(ret_pnl, axis=0)
 
     def do_pricing_logic_in_one_path(

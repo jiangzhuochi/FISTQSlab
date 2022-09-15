@@ -51,6 +51,6 @@ class MonteCarlo:
             lambda item: (item[0], np.array(item[1])),
             # item[0] 是编号
             # item[1] 是 n 元组, n 是标的数量, 每个元素是一条价格路径
-            # 转换成 array 后, 每行是一个标的的一条路径, 截取需要的投资期
+            # 转换成 array 后, 每行是一个标的的一条路径
             enumerate(islice(zip(*paths_iters), self.number_of_paths)),
         )
