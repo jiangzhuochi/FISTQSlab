@@ -1,14 +1,23 @@
 from dataclasses import dataclass, field
+from functools import cached_property
 from itertools import islice
-from operator import ge, lt
+from operator import ge, gt
 from pathlib import Path
+from typing import Any, Iterator
 
 import numpy as np
 import pandas as pd
+from more_itertools import ilen
+from multiprocess import Pool  # type:ignore
 from nptyping import Float64, Int, NDArray, Shape
 
 from .abc_option import BaseOption
-from .util import PriceGenFunc, cmp_dict_all_items, get_price_path_generator_func
+from .util import (
+    PriceGenFunc,
+    cmp_dict_all_items,
+    get_one_item_dict_kv,
+    get_price_path_generator_func,
+)
 
 
 @dataclass
@@ -16,6 +25,8 @@ class MonteCarlo:
 
     # key: 标的代码, value: 标的价格路径数据表的位置
     data_path: dict[str, Path]
+    # 模拟路径条数(约定每个标的模拟路径条数相等)
+    number_of_paths: int
     # key: 标的代码, value: 标的价格路径迭代器函数
     S: dict[str, PriceGenFunc] = field(init=False)
     # key: 标的代码, value: 标的初始价格
@@ -44,8 +55,8 @@ class MonteCarlo:
 @dataclass
 class BaseELN(BaseOption, MonteCarlo):
     """建仓系列基类
-    1. 折价建仓 (Worst of) Equity-Linked Note, (Wo)ELN
-    2. 溢价平仓, RELN
+    1. 折价建仓 (Worst of) Equity Linked Notes, (Wo)ELN
+    2. 溢价平仓, Reverse Equity Linked Notes, RELN
     """
 
     # 投资期(以自然日计)
@@ -70,13 +81,25 @@ class BaseELN(BaseOption, MonteCarlo):
         for k, v in self.S0.items():
             self.strike_price[k] = v * self.strike
 
-        # # 年化息率
-        # self.yield_ = (1 / self.issue_price - 1) * 365 / self.T
-
     @property
     def discount(self):
         """折现因子"""
         return 1 / (1 + self.r) ** (self.T / 365)
+
+    def get_zip_one_path_iterator(
+        self,
+    ) -> Iterator[tuple[int, NDArray[Shape["A, B"], Float64]]]:
+        """将不同底层标的迭代器合并, 返回产出路径编号和路径数组的迭代器"""
+
+        # 所有标的未使用的迭代器
+        paths_iters = map(lambda it: it[1](), self._Sitems)
+        return map(
+            lambda item: (item[0], np.array(item[1])[:, : self.T + 1]),
+            # item[0] 是编号
+            # item[1] 是 n 元组, n 是标的数量, 每个元素是一条价格路径
+            # 转换成 array 后, 每行是一个标的的一条路径, 截取需要的投资期
+            enumerate(islice(zip(*paths_iters), self.number_of_paths)),
+        )
 
     def delta(self):
         pass
@@ -91,6 +114,8 @@ class BaseELN(BaseOption, MonteCarlo):
         pass
 
 
+# https://www.dbs.com.sg/treasures/investments/product-suite/equities/equity-linked-investments
+# https://www.dfzq.com.hk/main/mainbusiness/wealthmanagement/structured-products/len/index.shtml
 @dataclass
 class ELN(BaseELN):
     """折价建仓"""
@@ -108,14 +133,11 @@ class ELN(BaseELN):
     @property
     def price(self):
 
-        gens = list(map(lambda it: it[1](), self._Sitems))
-        number_of_paths = 20000
         ret_sum = 0
-        for i, price_path in enumerate(islice(zip(*gens), number_of_paths)):
-            # price_path 是 n 元组, n 是标的数量, 每个元素是一条价格路径
-            arr = np.array(price_path)[:, : self.T + 1]
+        for i, arr in self.get_zip_one_path_iterator():
             ret_sum += self.do_pricing_logic_in_one_path(i, arr)
-        return ret_sum / number_of_paths / self.nominal_amount
+
+        return ret_sum / self.number_of_paths / self.nominal_amount
 
     def do_pricing_logic_in_one_path(
         self, i, arr: NDArray[Shape["A, B"], Float64]
@@ -156,13 +178,15 @@ class ELN(BaseELN):
             raise NotImplemented
 
 
+# 到期的具体损益不明确, 待进一步确认
+# https://www.dbs.com.sg/treasures/investments/product-suite/structured-investments/reverse-equity-linked-notes
 @dataclass
 class RELN(BaseELN):
     """折价建仓"""
 
     # key: 标的代码, value: 标的数量
     number_of_securities: dict[str, int] = field(kw_only=True)
-    # 名义本金(起始日股票市场价值)
+    # 名义本金(根据起始日股票市场价值计算)
     nominal_amount: float = field(init=False)
 
     def __post_init__(self):
@@ -172,8 +196,9 @@ class RELN(BaseELN):
         assert self.S0.keys() == self.number_of_securities.keys()
         # 名义本金, 目前只支持单只标的
         if len(self.S0) == 1:
-            key = next(iter(self.S0.keys()))
-            self.nominal_amount = self.S0[key] * self.number_of_securities[key]
+            _, s = get_one_item_dict_kv(self.S0)
+            _, n = get_one_item_dict_kv(self.number_of_securities)
+            self.nominal_amount = s * n
         else:
             raise NotImplemented
 
@@ -182,4 +207,52 @@ class RELN(BaseELN):
 
     @property
     def price(self):
-        return super().price
+
+        ret_sum = 0
+        for i, arr in self.get_zip_one_path_iterator():
+            ret_sum += self.do_pricing_logic_in_one_path(i, arr)
+
+        return ret_sum / self.number_of_paths / self.nominal_amount
+
+    def do_pricing_logic_in_one_path(
+        self, i, arr: NDArray[Shape["A, B"], Float64]
+    ) -> float:
+        """_summary_
+
+        Parameters
+        ----------
+        i : _type_
+            _description_
+        arr : NDArray[Shape[&quot;A, B&quot;], Float64]
+            shape 为 (A, B) 的数组, A = len(self.codes), B = self.T + 1
+        """
+
+        # print("{:-^20}".format(f" path {i} "))
+        assert arr.shape == (len(self.codes), self.T + 1)
+        # 该路径的期末价格
+        ST: dict[str, float] = dict(zip(self.codes, arr[:, -1]))
+        if cmp_dict_all_items(ST, self.strike_price, gt):
+            # print(">", ST, self.strike_price)
+            # print("+=========", self.scenario_ST_gt_strike_pnl)
+            return self.scenario_ST_gt_strike_pnl
+        else:
+            # print("<=", ST, self.strike_price)
+            # print(self.scenario_ST_le_strike_pnl(ST))
+            return self.scenario_ST_le_strike_pnl(ST)
+
+    @cached_property
+    def scenario_ST_gt_strike_pnl(self):
+        """到期日, 标的价格 ST > 行权价 strike_price, 投资者以行权价卖掉股票, 同时拿到利息"""
+
+        return self.discount * (
+            self.nominal_amount * self.strike
+            + self.nominal_amount * (self.issue_price - 1)
+        )
+
+    def scenario_ST_le_strike_pnl(self, ST):
+        """到期日, 标的价格 ST <= 行权价 strike_price, 投资者拿回股票, 同时拿到利息"""
+
+        _, s = get_one_item_dict_kv(ST)
+        _, n = get_one_item_dict_kv(self.number_of_securities)
+
+        return self.discount * (s * n + self.nominal_amount * (self.issue_price - 1))

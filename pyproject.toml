@@ -16,6 +16,8 @@ scipy = "^1.9.1"
 pydantic = "^1.10.1"
 numexpr = "^2.8.3"
 nptyping = "^2.3.1"
+multiprocess = "^0.70.13"
+more-itertools = "^8.14.0"
 
 
 [tool.poetry.group.dev.dependencies]

@@ -1,12 +1,14 @@
 import json
 from functools import partial
 from pathlib import Path
-from typing import Callable, Generator
+from typing import Callable, Iterator, TypeVar
 
 import numexpr as ne
 import numpy as np
 import pandas as pd
-from nptyping import Float64, Int, NDArray, Shape
+from nptyping import Float64, NDArray, Shape
+
+R = TypeVar("R")
 
 
 class DataFrameJSONEncoder(json.JSONEncoder):
@@ -81,7 +83,7 @@ def get_stock_path(
 # 1 年股价路径(单位时间为天, 共250天, 每天240步)
 get_stock_path_1y = partial(get_stock_path, u=250, m_step=240)
 
-PriceGenFunc = Callable[[], Generator[NDArray[Shape["*"], Float64], None, None]]
+PriceGenFunc = Callable[[], Iterator[NDArray[Shape["*"], Float64]]]
 
 
 def get_price_path_generator_func(csv_path: Path) -> PriceGenFunc:
@@ -93,7 +95,7 @@ def get_price_path_generator_func(csv_path: Path) -> PriceGenFunc:
         csv 路径, 该文件每行存储一条价格路径
     """
 
-    def g() -> Generator[NDArray[Shape["*"], Float64], None, None]:
+    def g() -> Iterator[NDArray[Shape["*"], Float64]]:
         with open(csv_path) as f:
             for line in f:
                 yield np.array(line.split(","), dtype=float)
@@ -126,3 +128,10 @@ def cmp_dict_all_items(d1: dict, d2: dict, op: Callable):
         if not op(d1[key], d2[key]):
             return False
     return True
+
+
+def get_one_item_dict_kv(d: dict[str, R]) -> tuple[str, R]:
+    """获取一个项的字典的键值元组"""
+
+    assert len(d) == 1
+    return next(iter(d.items()))
