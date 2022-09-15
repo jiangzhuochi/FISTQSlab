@@ -81,18 +81,15 @@ class BaseBEN(BaseOption, MonteCarlo):
                 )
         return self.discount * fv
 
-    @cached_property
-    def series_S0(self):
-        return pd.Series(self.S0)
-
     def find_worst_target(self, ST) -> tuple[str, float]:
         """找出表现最差的标的, 返回其代码和涨跌幅"""
 
         # 所有标的涨跌幅
-        pct_chg_se = ((pd.Series(ST) - self.series_S0) / self.series_S0).sort_values()
+        pct_chts = {}
+        for key in self.S0:
+            pct_chts[key] = (ST[key] - self.S0[key]) / self.S0[key]
         # 升序排列, 第一个是表现最差的
-        code, worst_pct_chg = next(iter(pct_chg_se.items()))
-        return cast(str, code), worst_pct_chg
+        return next(iter(sorted(pct_chts.items(), key=lambda x: x[1])))
 
     @property
     def discount(self):
