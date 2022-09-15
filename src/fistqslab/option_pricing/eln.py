@@ -1,55 +1,14 @@
+from abc import abstractmethod
 from dataclasses import dataclass, field
 from functools import cached_property
-from itertools import islice
 from operator import ge, gt
-from pathlib import Path
-from typing import Any, Iterator
 
 import numpy as np
-import pandas as pd
-from more_itertools import ilen
-from multiprocess import Pool  # type:ignore
-from nptyping import Float64, Int, NDArray, Shape
+from nptyping import Float64, NDArray, Shape
 
 from .abc_option import BaseOption
-from .util import (
-    PriceGenFunc,
-    cmp_dict_all_items,
-    get_one_item_dict_kv,
-    get_price_path_generator_func,
-)
-
-
-@dataclass
-class MonteCarlo:
-
-    # key: 标的代码, value: 标的价格路径数据表的位置
-    data_path: dict[str, Path]
-    # 模拟路径条数(约定每个标的模拟路径条数相等)
-    number_of_paths: int
-    # key: 标的代码, value: 标的价格路径迭代器函数
-    S: dict[str, PriceGenFunc] = field(init=False)
-    # key: 标的代码, value: 标的初始价格
-    S0: dict[str, float] = field(init=False)
-    # 标的代码列表
-    codes: list[str] = field(init=False)
-
-    def __post_init__(self):
-        # 各个标的价格路径迭代器函数
-        self.S = {}
-        for k, path in self.data_path.items():
-            self.S[k] = get_price_path_generator_func(path)
-
-        # 各个标的初始价格
-        self.S0 = {}
-        for k, gen in self.S.items():
-            self.S0[k] = next(gen())[0]
-
-        # 可遍历的 dict_items
-        self._Sitems = self.S.items()
-
-        # 标的资产代码列表
-        self.codes = list(map(lambda it: it[0], self._Sitems))
+from .mc import MonteCarlo
+from .util import cmp_dict_all_items, get_one_item_dict_kv
 
 
 @dataclass
@@ -61,6 +20,10 @@ class BaseELN(BaseOption, MonteCarlo):
 
     # 投资期(以自然日计)
     T: int
+    # 这个 T 是自然日数而不是交易日数
+    # 但是股价路径是按交易日模拟的
+    # 暂时假设用 TD = T * 250 // 365 代表对应的交易日数
+    TD: int = field(init=False)
     # 行权比率(行权价与初始价的比)
     strike: float
     # key: 标的代码, value: 标的具体行权价(元, 根据 S0 和 strike 计算)
@@ -71,10 +34,14 @@ class BaseELN(BaseOption, MonteCarlo):
     yield_: float = field(init=False)
     # 无风险收益率(默认值为1年期存款基准利率转化为连续复利收益率)
     r: float = np.log(1 + 0.015)
+    # 名义本金, ELN 和 RELN 有所不同, 在子类中具体指定
+    nominal_amount: float = field(init=False)
 
     def __post_init__(self):
 
         super().__post_init__()
+
+        self.TD: int = self.T * 250 // 365
 
         # 各个标的具体行权价
         self.strike_price = {}
@@ -86,20 +53,28 @@ class BaseELN(BaseOption, MonteCarlo):
         """折现因子"""
         return 1 / (1 + self.r) ** (self.T / 365)
 
-    def get_zip_one_path_iterator(
-        self,
-    ) -> Iterator[tuple[int, NDArray[Shape["A, B"], Float64]]]:
-        """将不同底层标的迭代器合并, 返回产出路径编号和路径数组的迭代器"""
+    @property
+    def price(self):
+        ret_pnl = np.empty(self.number_of_paths, dtype=float)
+        for i, arr in self.get_zip_one_path_iterator():
+            # 注意, 这里取用模拟的股价路径时, 应该用的是交易日数
+            ret_pnl[i] = self.do_pricing_logic_in_one_path(i, arr[:, : self.TD + 1])
+        return np.mean(ret_pnl, axis=0) / self.nominal_amount
 
-        # 所有标的未使用的迭代器
-        paths_iters = map(lambda it: it[1](), self._Sitems)
-        return map(
-            lambda item: (item[0], np.array(item[1])[:, : self.T + 1]),
-            # item[0] 是编号
-            # item[1] 是 n 元组, n 是标的数量, 每个元素是一条价格路径
-            # 转换成 array 后, 每行是一个标的的一条路径, 截取需要的投资期
-            enumerate(islice(zip(*paths_iters), self.number_of_paths)),
-        )
+    @abstractmethod
+    def do_pricing_logic_in_one_path(
+        self, i: int, arr: NDArray[Shape["A, B"], Float64]
+    ) -> float:
+        """分析一条路径, 返回该路径的损益情况
+
+        Parameters
+        ----------
+        i : int
+            路径序号
+        arr : NDArray[Shape[&quot;A, B&quot;], Float64]
+            shape 为 (A, B) 的数组, A = len(self.codes), B = self.TD + 1
+        """
+        pass
 
     def delta(self):
         pass
@@ -130,30 +105,15 @@ class ELN(BaseELN):
         # 年化息率
         self.yield_ = (1 / self.issue_price - 1) * 365 / self.T
 
-    @property
-    def price(self):
-
-        ret_sum = 0
-        for i, arr in self.get_zip_one_path_iterator():
-            ret_sum += self.do_pricing_logic_in_one_path(i, arr)
-
-        return ret_sum / self.number_of_paths / self.nominal_amount
-
     def do_pricing_logic_in_one_path(
         self, i, arr: NDArray[Shape["A, B"], Float64]
     ) -> float:
-        """_summary_
-
-        Parameters
-        ----------
-        i : _type_
-            _description_
-        arr : NDArray[Shape[&quot;A, B&quot;], Float64]
-            shape 为 (A, B) 的数组, A = len(self.codes), B = self.T + 1
-        """
-
         # print("{:-^20}".format(f" path {i} "))
-        assert arr.shape == (len(self.codes), self.T + 1)
+        assert arr.shape == (
+            len(self.codes),
+            self.TD + 1,
+        ), f"{arr.shape} != {(len(self.codes), self.TD + 1)}"
+
         # 该路径的期末价格
         ST: dict[str, float] = dict(zip(self.codes, arr[:, -1]))
         if cmp_dict_all_items(ST, self.strike_price, ge):
@@ -205,30 +165,15 @@ class RELN(BaseELN):
         # 年化息率
         self.yield_ = (self.issue_price - 1) * 365 / self.T
 
-    @property
-    def price(self):
-
-        ret_sum = 0
-        for i, arr in self.get_zip_one_path_iterator():
-            ret_sum += self.do_pricing_logic_in_one_path(i, arr)
-
-        return ret_sum / self.number_of_paths / self.nominal_amount
-
     def do_pricing_logic_in_one_path(
-        self, i, arr: NDArray[Shape["A, B"], Float64]
+        self, i: int, arr: NDArray[Shape["A, B"], Float64]
     ) -> float:
-        """_summary_
-
-        Parameters
-        ----------
-        i : _type_
-            _description_
-        arr : NDArray[Shape[&quot;A, B&quot;], Float64]
-            shape 为 (A, B) 的数组, A = len(self.codes), B = self.T + 1
-        """
 
         # print("{:-^20}".format(f" path {i} "))
-        assert arr.shape == (len(self.codes), self.T + 1)
+        assert arr.shape == (
+            len(self.codes),
+            self.TD + 1,
+        ), f"{arr.shape} != {(len(self.codes), self.TD + 1)}"
         # 该路径的期末价格
         ST: dict[str, float] = dict(zip(self.codes, arr[:, -1]))
         if cmp_dict_all_items(ST, self.strike_price, gt):
