@@ -135,3 +135,27 @@ def get_one_item_dict_kv(d: dict[str, R]) -> tuple[str, R]:
 
     assert len(d) == 1
     return next(iter(d.items()))
+
+
+def find_worst_target(S0: dict[str, float], ST: dict[str, float]) -> tuple[str, float]:
+    """找出表现最差的标的, 返回其代码和涨跌幅
+
+    Parameters
+    ----------
+    S0 : dict[str, float]
+        标的代码, 期初价
+    ST : dict[str, float]
+        标的代码, 期末价
+
+    Returns
+    -------
+    tuple[str, float]
+        标的代码, 涨跌幅
+    """
+
+    # 所有标的涨跌幅
+    pct_chts = {}
+    for key in S0:
+        pct_chts[key] = (ST[key] - S0[key]) / S0[key]
+    # 升序排列, 第一个是表现最差的
+    return next(iter(sorted(pct_chts.items(), key=lambda x: x[1])))

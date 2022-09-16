@@ -5,40 +5,41 @@ from nptyping import Float64, NDArray, Shape
 
 from .abc_option import BaseOption
 from .mc import MonteCarlo
-from .util import get_one_item_dict_kv
+from .util import find_worst_target
 
 
 @dataclass
-class LeverageNote(BaseOption, MonteCarlo):
+class RainbowNote(BaseOption, MonteCarlo):
 
     # 票据期限(以自然日计)
     T: int
     # 票据期限(以交易日计)
     TD: int = field(init=False)
-    # 杠杆倍数
-    leverage_multiple: float
-    # 股息率(年化)
-    dividend_rate: float
-    # 杠杆成本
-    leverage_cost: float
-    # 票据发行价
-    issue_price: float = field(init=False)
+    # 下界
+    put_strike: float
+    # 低上界
+    lower_call_strike: float
+    # 上方参与率
+    upside_participation: float
+    # 票息(年化)
+    guaranteed_flat_coupon: float
     # 无风险收益率(默认值为1年期存款基准利率转化为连续复利收益率)
     r: float = np.log(1 + 0.015)
+    # 名义本金(票据面值)
+    nominal_amount: float = 1e6
 
     def __post_init__(self):
 
         super().__post_init__()
 
         self.TD = self.T * 250 // 365
-        self.issue_price = 1 + self.leverage_cost
 
     @property
     def price(self):
         ret_pnl = np.empty(self.number_of_paths, dtype=float)
         for i, arr in self.get_zip_one_path_iterator():
             ret_pnl[i] = self.do_pricing_logic_in_one_path(i, arr[:, : self.TD + 1])
-        return np.mean(ret_pnl, axis=0)
+        return np.mean(ret_pnl, axis=0) / self.nominal_amount
 
     def do_pricing_logic_in_one_path(
         self, i: int, arr: NDArray[Shape["A, B"], Float64]
@@ -55,16 +56,22 @@ class LeverageNote(BaseOption, MonteCarlo):
 
         # 该路径的期末价格
         ST: dict[str, float] = dict(zip(self.codes, arr[:, -1]))
-        # 票据资本利得部分收益
-        _, s0 = get_one_item_dict_kv(self.S0)
-        _, st = get_one_item_dict_kv(ST)
-        capital_gains_rate = (st - s0) / s0
-        # 总收益率
-        pnl = (
-            self.dividend_rate * self.T / 365 + capital_gains_rate
-        ) * self.leverage_multiple
+        code, worst_pct_chg = find_worst_target(self.S0, ST)
+        real_rate_of_return = self.guaranteed_flat_coupon * self.T / 365
+        if worst_pct_chg >= 0:
+            # 本金 + 固定票息收益 + 表现最差标的的涨幅
+            fv = self.nominal_amount * (1 + real_rate_of_return + worst_pct_chg)
+        elif worst_pct_chg < 0 and 1 + worst_pct_chg >= self.put_strike:
+            # 本金 + 固定票息收益
+            fv = self.nominal_amount * (1 + real_rate_of_return)
+        else:
+            # 固定票息收益 + 本金按照行权价转股为表现最差的标的股票"
+            fv = (
+                self.nominal_amount * real_rate_of_return
+                + self.nominal_amount // (self.put_strike * self.S0[code]) * ST[code]
+            )
 
-        return self.discount * (1 + pnl)
+        return self.discount * fv
 
     @property
     def discount(self):
