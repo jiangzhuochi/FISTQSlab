@@ -65,7 +65,7 @@ class RainbowNote(BaseOption, MonteCarlo):
             # 本金 + 固定票息收益
             fv = self.nominal_amount * (1 + real_rate_of_return)
         else:
-            # 固定票息收益 + 本金按照行权价转股为表现最差的标的股票"
+            # 固定票息收益 + 本金按照行权价转股为表现最差的标的股票
             fv = (
                 self.nominal_amount * real_rate_of_return
                 + self.nominal_amount // (self.put_strike * self.S0[code]) * ST[code]

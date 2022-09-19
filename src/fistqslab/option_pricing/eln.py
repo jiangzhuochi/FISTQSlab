@@ -18,12 +18,6 @@ class BaseELN(BaseOption, MonteCarlo):
     2. 溢价平仓, Reverse Equity Linked Notes, RELN
     """
 
-    # 投资期(以自然日计)
-    T: int
-    # 这个 T 是自然日数而不是交易日数
-    # 但是股价路径是按交易日模拟的
-    # 暂时假设用 TD = T * 250 // 365 代表对应的交易日数
-    TD: int = field(init=False)
     # 行权比率(行权价与初始价的比)
     strike: float
     # key: 标的代码, value: 标的具体行权价(元, 根据 S0 和 strike 计算)
@@ -58,7 +52,7 @@ class BaseELN(BaseOption, MonteCarlo):
         ret_pnl = np.empty(self.number_of_paths, dtype=float)
         for i, arr in self.get_zip_one_path_iterator():
             # 注意, 这里取用模拟的股价路径时, 应该用的是交易日数
-            ret_pnl[i] = self.do_pricing_logic_in_one_path(i, arr[:, : self.TD + 1])
+            ret_pnl[i] = self.do_pricing_logic_in_one_path(i, arr)
         return np.mean(ret_pnl, axis=0) / self.nominal_amount
 
     @abstractmethod
@@ -71,7 +65,7 @@ class BaseELN(BaseOption, MonteCarlo):
         ----------
         i : int
             路径序号
-        arr : NDArray[Shape[&quot;A, B&quot;], Float64]
+        arr : NDArray[Shape["A, B"], Float64]
             shape 为 (A, B) 的数组, A = len(self.codes), B = self.TD + 1
         """
         pass
@@ -136,6 +130,35 @@ class ELN(BaseELN):
             return ST[key] * (self.nominal_amount // self.strike_price[key])
         else:
             raise NotImplemented
+
+    @property
+    def pricev(self):
+        """向量化定价"""
+
+        all_path_arr = self.get_all_path_arr()
+        # print(all_path_arr)
+        # 期末价格, 注意转置, 第 0 维路径数, 第 1 维品种数
+        ST_arr: NDArray[Shape["Y, X"], Float64] = all_path_arr[:, :, -1].T
+        # print(ST_arr.shape)
+        # 将行权价格转换为数组, 第 0 维品种数
+        strike_arr: NDArray[Shape["X,"], Float64] = np.array(
+            [self.strike_price[key] for key in self.codes]
+        )
+        # 所有的品种都需满足条件
+        # 广播运算, ST_arr >= strike_arr: Shape["Y, X"]
+        # np.all axis=1 最后的维度 (品种) 消失, 变为 Shape["Y,"]
+        sig: NDArray[Shape["Y,"], Float64] = np.all(ST_arr >= strike_arr, axis=1)
+        # 大于等于行权价的情况
+        upper_scenario = self.nominal_amount * np.ones(np.count_nonzero(sig))
+        # 表现最差 (即跌幅最大) 的品种 (第 1 维)
+        # ST_arr[~sig]: Shape["Y1, X"], Y1 为 sig 中 False 的数量
+        # np.min axis=1 最后的维度 (品种) 消失, 变为 Shape["Y1,"]
+        # 小于行权价的情况
+        lower_scenario: NDArray[Shape["Y1,"], Float64] = self.nominal_amount * np.min(
+            ST_arr[~sig] / strike_arr, axis=1  # type:ignore
+        )
+        res = np.hstack((upper_scenario, lower_scenario))
+        return np.mean(res) * self.discount / self.nominal_amount
 
 
 # 到期的具体损益不明确, 待进一步确认

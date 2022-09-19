@@ -103,6 +103,23 @@ def get_price_path_generator_func(csv_path: Path) -> PriceGenFunc:
     return g
 
 
+def get_all_price_path(csv_path: Path) -> NDArray[Shape["A, B"], Float64]:
+    """读入全部数据
+
+    Parameters
+    -------
+    csv_path : Path
+        csv 路径, 该文件每行存储一条价格路径
+
+    Returns
+    -------
+    NDArray[Shape["A, B"], Float64]
+        二维 NDArray 数组, A 为路径数, B 为模拟节点数
+    """
+
+    return pd.read_csv(csv_path, header=None).to_numpy(dtype=float)
+
+
 def cmp_dict_all_items(d1: dict, d2: dict, op: Callable):
     """比较两个键相同的字典, 它们的值是否全部符合大小关系
 
