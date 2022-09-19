@@ -5,6 +5,7 @@ from operator import ge, gt
 
 import numpy as np
 from nptyping import Float64, NDArray, Shape
+from scipy.optimize import fsolve
 
 from .abc_option import BaseOption
 from .mc import MonteCarlo
@@ -224,3 +225,38 @@ class RELN(BaseELN):
         _, n = get_one_item_dict_kv(self.number_of_securities)
 
         return self.discount * (s * n + self.nominal_amount * (self.issue_price - 1))
+
+
+def get_eln_strike_from_issue_price(
+    issue_price: float,
+    all_S_data: dict[str, NDArray],
+    number_of_paths=20000,
+    T=64,
+):
+    """根据 ELN 票据价求行权价
+
+    Parameters
+    ----------
+    issue_price : float
+        票据价
+    all_S_data : dict[str, NDArray]
+        路径数据
+    number_of_paths : int, optional
+        路径条数, by default 20000
+    T : int, optional
+        日期(自然日), by default 64
+    """
+
+    def f(
+        strike,
+    ):
+        op = ELN(
+            all_S_data=all_S_data,
+            number_of_paths=number_of_paths,
+            strike=strike,
+            issue_price=issue_price,
+            T=T,
+        )
+        return op.pricev - issue_price
+
+    return round(fsolve(f, x0=0.95, xtol=1e-5)[0], 4)
