@@ -23,7 +23,7 @@ class EuropeanOptionBS(BaseOption):
 
     S: float  # 标的现价
     L: float  # 执行价
-    T: float  # 有效期(单位: 年), 期权有效天数与365的比值
+    T: float  # 有效期(自然日)
     r: float  # 连续复利无风险利率, 若年复利无风险利率为r0, 则r = ln(1+r0)
     sigma: float  # 年化标准差
 
@@ -87,7 +87,7 @@ class EuropeanPutOptionBS(EuropeanOptionBS, Put):
         ) - self.S * self.sigma * self.n(self.d1) / (2 * np.sqrt(self.T))
 
 
-def euro_option_bs(S: float, L, T, r, sigma) -> dict[str, pd.DataFrame]:
+def euro_option_bs(S: float, L, T, r, sigma) -> dict:
     """「开始计算」时使用, 返回:
     单只期权(包括看涨和看跌)的价格和所有希腊字母, 用于表格
     系列期权(包括看涨和看跌)的价格和所有希腊字母, 用于图片
@@ -107,20 +107,21 @@ def euro_option_bs(S: float, L, T, r, sigma) -> dict[str, pd.DataFrame]:
 
     all_data = {}
 
-    # 单只期权
-    all_data["sheet"] = pd.DataFrame(
-        {"Call": _get_field(c), "Put": _get_field(p)}
-    ).round(4)
-
     # 系列期权
     for _field in common_field:
         all_data[_field] = euro_option_bs_series(S, L, T, r, sigma, cast(FIELD, _field))
+    all_data = pd.DataFrame(all_data).round(4).T.to_dict()
+
+    # 单只期权
+    all_data["sheet"] = (
+        pd.DataFrame({"Call": _get_field(c), "Put": _get_field(p)}).round(4).to_dict()
+    )
 
     return all_data
 
 
 # 绘图时使用, 返回标的价格不同的一系列期权(包括看涨和看跌)的价格或某个希腊字母
-def euro_option_bs_series(S: float, L, T, r, sigma, field: FIELD) -> pd.DataFrame:
+def euro_option_bs_series(S: float, L, T, r, sigma, field: FIELD) -> dict:
     """BS公式计算一系列标的现价不同的普通欧式期权价格。
 
     Parameters
@@ -150,10 +151,9 @@ def euro_option_bs_series(S: float, L, T, r, sigma, field: FIELD) -> pd.DataFram
     S_ls = np.arange(S - 10, S + 10, 0.1)
     C_ls = map(lambda S: getattr(replace(c, S=S), field), S_ls)
     P_ls = map(lambda S: getattr(replace(p, S=S), field), S_ls)
-    df = (
-        pd.DataFrame({"call": C_ls, "put": P_ls}, index=S_ls)
-        .rename(index=lambda n: f"{n:.2f}")
-        .round(4)
-    )
 
-    return df
+    cp_dict = {}
+    cp_dict["call"] = list(map(list, zip(S_ls, C_ls)))
+    cp_dict["put"] = list(map(list, zip(S_ls, P_ls)))
+
+    return cp_dict
