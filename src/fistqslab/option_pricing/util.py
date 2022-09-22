@@ -176,3 +176,11 @@ def find_worst_target(S0: dict[str, float], ST: dict[str, float]) -> tuple[str, 
         pct_chts[key] = (ST[key] - S0[key]) / S0[key]
     # 升序排列, 第一个是表现最差的
     return next(iter(sorted(pct_chts.items(), key=lambda x: x[1])))
+
+
+def data_path_to_codes_and_all_S_data(data_path: dict[str, Path]):
+    """将数据路径字典转换为代码和数组"""
+
+    codes = list(data_path.keys())
+    all_S_data = np.array([get_all_price_path(data_path[key]) for key in codes])
+    return codes, all_S_data

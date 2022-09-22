@@ -110,7 +110,7 @@ def euro_option_bs(S: float, L, T, r, sigma) -> dict:
     # 系列期权
     for _field in common_field:
         all_data[_field] = euro_option_bs_series(S, L, T, r, sigma, cast(FIELD, _field))
-    all_data = pd.DataFrame(all_data).round(4).T.to_dict()
+    all_data = pd.DataFrame(all_data).T.to_dict()
 
     # 单只期权
     all_data["sheet"] = (
@@ -148,12 +148,11 @@ def euro_option_bs_series(S: float, L, T, r, sigma, field: FIELD) -> dict:
     c = EuropeanCallOptionBS(S=S, L=L, T=T, r=r, sigma=sigma)
     p = EuropeanPutOptionBS(S=S, L=L, T=T, r=r, sigma=sigma)
 
-    S_ls = np.arange(S - 10, S + 10, 0.1)
-    C_ls = map(lambda S: getattr(replace(c, S=S), field), S_ls)
-    P_ls = map(lambda S: getattr(replace(p, S=S), field), S_ls)
+    S_ls = np.around(np.arange(S - 10, S + 10.1, 0.1), 4)
+    C_ls = map(lambda S: round(getattr(replace(c, S=S), field), 4), S_ls)
+    P_ls = map(lambda S: round(getattr(replace(p, S=S), field), 4), S_ls)
 
     cp_dict = {}
     cp_dict["call"] = list(map(list, zip(S_ls, C_ls)))
     cp_dict["put"] = list(map(list, zip(S_ls, P_ls)))
-
     return cp_dict

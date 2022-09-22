@@ -15,15 +15,13 @@ app = Flask(__name__)
 def euro_option_bs_route():
     params_dict = EuropeanOptionModel.parse_obj(request.form).dict()
     params_dict["T"] /= 365
-    print(params_dict)
-
     all_data = euro_option_bs(**params_dict)
     return flask.jsonify(all_data)
 
 
-@app.route("/data_display/reits", methods=["GET"])
+@app.route("/data_display/reits", methods=['POST', 'GET'])
 def reits_route():
-    return get_data().to_json()
+    return get_data()
 
 
 @app.route("/")

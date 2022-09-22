@@ -23,28 +23,23 @@ class Put(OptionType):
 
 class BaseOption(ABC):
     """抽象类, 期权"""
+    pass
+    # @property
+    # @abstractmethod
+    # def price(self):
+    #     raise NotImplemented
 
-    @property
-    @abstractmethod
-    def price(self):
-        raise NotImplemented
+    # @property
+    # @abstractmethod
+    # def gamma(self):
+    #     raise NotImplemented
 
-    @property
-    @abstractmethod
-    def delta(self):
-        raise NotImplemented
+    # @property
+    # @abstractmethod
+    # def theta(self):
+    #     raise NotImplemented
 
-    @property
-    @abstractmethod
-    def gamma(self):
-        raise NotImplemented
-
-    @property
-    @abstractmethod
-    def theta(self):
-        raise NotImplemented
-
-    @property
-    @abstractmethod
-    def vega(self):
-        raise NotImplemented
+    # @property
+    # @abstractmethod
+    # def vega(self):
+    #     raise NotImplemented

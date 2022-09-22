@@ -7,4 +7,7 @@ def get_data():
     df = pd.read_csv("data/ohlc.csv", index_col=0)
     num_of_rows = df.shape[0]
     df["sig"] = np.random.randint(-1, 2, num_of_rows)
-    return df
+    df.reset_index(inplace=True)
+    df = df.reindex(columns=["Date", "open", "close", "low", "high", "sig"])
+    # print(df.to_numpy())
+    return df.to_numpy().tolist()

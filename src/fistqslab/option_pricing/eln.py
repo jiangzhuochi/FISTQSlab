@@ -8,10 +8,12 @@ from nptyping import Float64, NDArray, Shape
 from scipy.optimize import fsolve
 
 from .abc_option import BaseOption
-from .mc import MonteCarlo
+from .mc import MonteCarlo, MonteCarlo2
 from .util import cmp_dict_all_items, get_one_item_dict_kv
 
 
+# TODO: ELN接受产品代码列表和np array三位数组
+# 第0维和产品代码对齐
 @dataclass
 class BaseELN(BaseOption, MonteCarlo):
     """建仓系列基类
@@ -69,9 +71,6 @@ class BaseELN(BaseOption, MonteCarlo):
         arr : NDArray[Shape["A, B"], Float64]
             shape 为 (A, B) 的数组, A = len(self.codes), B = self.TD + 1
         """
-        pass
-
-    def delta(self):
         pass
 
     def gamma(self):
@@ -260,3 +259,76 @@ def get_eln_strike_from_issue_price(
         return op.pricev - issue_price
 
     return round(fsolve(f, x0=0.95, xtol=1e-5)[0], 4)
+
+
+@dataclass
+class BaseELN2(BaseOption, MonteCarlo2):
+    """建仓系列基类
+    1. 折价建仓 (Worst of) Equity Linked Notes, (Wo)ELN
+    2. 溢价平仓, Reverse Equity Linked Notes, RELN
+    """
+
+    # 行权比率(行权价与初始价的比)
+    strike: float
+    # key: 标的代码, value: 标的具体行权价(元, 根据 S0 和 strike 计算)
+    strike_price: NDArray[Shape["*"], Float64] = field(init=False)
+    # 票据发行价率(发行价格与面值的比)
+    issue_price: float
+    # 年化息率(根据 T 和 issue_price 计算)
+    yield_: float = field(init=False)
+    # 无风险收益率(默认值为1年期存款基准利率转化为连续复利收益率)
+    r: float = np.log(1 + 0.015)
+    # 名义本金, ELN 和 RELN 有所不同, 在子类中具体指定
+    nominal_amount: float = field(init=False)
+
+    def __post_init__(self):
+
+        super().__post_init__()
+
+        # 各个标的具体行权价
+        self.strike_price = self.S0 * self.strike
+
+    @property
+    def discount(self):
+        """折现因子"""
+        return 1 / (1 + self.r) ** (self.T / 365)
+
+
+@dataclass
+class ELN2(BaseELN2):
+    """折价建仓"""
+
+    # 名义本金(票据面值)
+    nominal_amount: float = 1e6
+
+    def __post_init__(self):
+
+        super().__post_init__()
+
+        # 年化息率
+        self.yield_ = (1 / self.issue_price - 1) * 365 / self.T
+
+    @property
+    def price(self):
+        """向量化定价"""
+
+        # 期末价格, 注意转置, 第 0 维路径数, 第 1 维品种数
+        ST_arr: NDArray[Shape["Y, X"], Float64] = self.S[:, :, -1].T
+        # print(ST_arr.shape)
+        # 将行权价格转换为数组, 第 0 维品种数
+        strike_arr: NDArray[Shape["X,"], Float64] = self.strike_price
+        # 所有的品种都需满足条件
+        # 广播运算, ST_arr >= strike_arr: Shape["Y, X"]
+        # np.all axis=1 最后的维度 (品种) 消失, 变为 Shape["Y,"]
+        sig: NDArray[Shape["Y,"], Float64] = np.all(ST_arr >= strike_arr, axis=1)
+        # 大于等于行权价的情况
+        upper_scenario = self.nominal_amount * np.ones(np.count_nonzero(sig))
+        # 表现最差 (即跌幅最大) 的品种 (第 1 维)
+        # ST_arr[~sig]: Shape["Y1, X"], Y1 为 sig 中 False 的数量
+        # np.min axis=1 最后的维度 (品种) 消失, 变为 Shape["Y1,"]
+        # 小于行权价的情况
+        lower_scenario: NDArray[Shape["Y1,"], Float64] = self.nominal_amount * np.min(
+            ST_arr[~sig] / strike_arr, axis=1  # type:ignore
+        )
+        res = np.hstack((upper_scenario, lower_scenario))
+        return np.mean(res) * self.discount / self.nominal_amount

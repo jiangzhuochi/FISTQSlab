@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from functools import cache
 from itertools import islice
 from pathlib import Path
 from typing import Iterator
@@ -32,6 +33,8 @@ class MonteCarlo:
     )
     # key: 标的代码, value: 标的初始价格
     S0: dict[str, float] = field(init=False)
+    # 标的初始价格列表 (顺序和 codes 一致)
+    S0_ls: list[float] = field(init=False)
     # 标的代码列表
     codes: list[str] = field(init=False)
 
@@ -59,11 +62,9 @@ class MonteCarlo:
         else:
             raise Exception("输入数据格式错误")
 
-        # 可遍历的 dict_items
-        self._Sitems = self.S.items()
-
         # 标的资产代码列表
-        self.codes = list(map(lambda it: it[0], self._Sitems))
+        self.codes = list(self.S.keys())
+        self.S0_ls = [self.S0[key] for key in self.codes]
 
     def get_zip_one_path_iterator(
         self,
@@ -72,7 +73,7 @@ class MonteCarlo:
 
         assert self.data_path is not None and self.all_S_data is None, "全部读入数据时, 不可使用迭代"
         # 所有标的未使用的迭代器
-        paths_iters = map(lambda it: it[1](), self._Sitems)  # type:ignore
+        paths_iters = (self.S[key]() for key in self.codes)  # type:ignore
         return map(
             lambda item: (item[0], np.array(item[1])[:, : self.TD + 1]),
             # item[0] 是编号
@@ -94,8 +95,79 @@ class MonteCarlo:
         """
 
         assert self.data_path is None and self.all_S_data is not None
-        price_arr = np.stack(
-            # item[1] 二维数据, 0 维是路径数, 1 维是模拟节点数
-            list(map(lambda item: item[1][:, : self.TD + 1], self._Sitems))  # type:ignore
-        )
-        return price_arr
+        return np.stack([self.all_S_data[key][:, : self.TD + 1] for key in self.codes])
+
+    def delta(self, t: int, St_ls: list[float]):
+        """计算 delta 值
+
+        dsfParameters
+        ----------
+        t : int
+            时刻, 从 0 到 T 的整数
+        St_ls: list[float]
+            t 时刻标的的价格
+        """
+        assert len(St_ls) == 1, "目前只支持单只"
+        # 剩余自然日
+        left_t = self.T - t
+        # 剩余交易日
+        left_td = left_t * 250 // 365
+        all_path_arr = self.get_all_path_arr()
+        left_path_arr = all_path_arr[:, :, : left_td + 1]
+        print(left_path_arr)
+        # 构造从t时刻出发的路径
+        print(left_path_arr / np.array(self.S0_ls) * np.array(St_ls))
+        raise
+        print(np.array(St_ls))
+
+
+@dataclass
+class MonteCarlo2:
+
+    # 底层标的代码
+    codes: list[str]
+    # 保存全部数据, 维度依次是: 标的数、路径数、节点数
+    all_S_data: NDArray[Shape["X, Y, *"], Float64] = field(repr=False)
+    # 投资期(以自然日计)
+    T: int
+    # 这个 T 是自然日数而不是交易日数
+    # 但是股价路径是按交易日模拟的
+    # 暂时假设用 TD = T * 250 // 365 代表对应的交易日数
+    TD: int = field(init=False)
+    # 提取所需时间的数据
+    S: NDArray[Shape["X, Y, Z"], Float64] = field(init=False)
+    # key: 标的代码, value: 标的初始价格
+    S0: NDArray[Shape["*"], Float64] = field(init=False)
+    # 模拟路径条数(约定每个标的模拟路径条数相等)
+    number_of_paths: int = field(init=False)
+
+    def __post_init__(self):
+        # 各个标的价格路径迭代器函数
+
+        self.TD: int = self.T * 250 // 365
+        self.S = self.all_S_data[:, :, : self.TD + 1]
+        self.S0 = self.all_S_data[:, 0, 0]
+        self.number_of_paths = self.all_S_data.shape[1]
+
+    # def delta(self, t: int, St_ls: list[float]):
+    #     """计算 delta 值
+
+    #     dsfParameters
+    #     ----------
+    #     t : int
+    #         时刻, 从 0 到 T 的整数
+    #     St_ls: list[float]
+    #         t 时刻标的的价格
+    #     """
+    #     assert len(St_ls) == 1, "目前只支持单只"
+    #     # 剩余自然日
+    #     left_t = self.T - t
+    #     # 剩余交易日
+    #     left_td = left_t * 250 // 365
+    #     all_path_arr = self.get_all_path_arr()
+    #     left_path_arr = all_path_arr[:, :, : left_td + 1]
+    #     print(left_path_arr)
+    #     # 构造从t时刻出发的路径
+    #     print(left_path_arr / np.array(self.S0_ls) * np.array(St_ls))
+    #     raise
+    #     print(np.array(St_ls))

@@ -11,8 +11,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from fistqslab.option_pricing.eln import ELN, get_eln_strike_from_issue_price
-from fistqslab.option_pricing.util import get_all_price_path
+from fistqslab.option_pricing.eln import ELN2, get_eln_strike_from_issue_price
+from fistqslab.option_pricing.util import (
+    data_path_to_codes_and_all_S_data,
+    get_all_price_path,
+)
 
 ROOT = Path(".")
 IMG_DIR = ROOT / "img"
@@ -25,23 +28,26 @@ total_time_start = time.perf_counter()
 data180101 = get_all_price_path(DATA_DIR / "路径模拟数据/180101.csv")
 
 
+codes, all_S_data = data_path_to_codes_and_all_S_data(
+    {"180101.csv": DATA_DIR / "路径模拟数据/180101.csv"}
+)
+
+
 def elnv(
-    data_path=None,
-    all_S_data=None,
-    number_of_paths=20000,
+    codes=codes,
+    all_S_data=all_S_data,
     strike=0.9404,
     issue_price=0.9828,
     T=64,
 ):
-    op = ELN(
-        data_path=data_path,
+    op = ELN2(
+        codes=codes,
         all_S_data=all_S_data,
-        number_of_paths=number_of_paths,
         strike=strike,
         issue_price=issue_price,
         T=T,
     )
-    return op.pricev
+    return op.price
 
 
 if __name__ == "__main__":
@@ -52,12 +58,7 @@ if __name__ == "__main__":
     strike_arange = np.arange(start, end, step)
     prices = list(
         map(
-            lambda strike: elnv(
-                all_S_data={
-                    "180101": data180101,
-                },
-                strike=strike,
-            ),
+            lambda strike: elnv(strike=strike),
             strike_arange,
         )
     )
