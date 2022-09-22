@@ -9,5 +9,4 @@ def get_data():
     df["sig"] = np.random.randint(-1, 2, num_of_rows)
     df.reset_index(inplace=True)
     df = df.reindex(columns=["Date", "open", "close", "low", "high", "sig"])
-    # print(df.to_numpy())
     return df.to_numpy().tolist()

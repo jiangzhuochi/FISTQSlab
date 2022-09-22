@@ -12,8 +12,6 @@ from .mc import MonteCarlo, MonteCarlo2
 from .util import cmp_dict_all_items, get_one_item_dict_kv
 
 
-# TODO: ELN接受产品代码列表和np array三位数组
-# 第0维和产品代码对齐
 @dataclass
 class BaseELN(BaseOption, MonteCarlo):
     """建仓系列基类
