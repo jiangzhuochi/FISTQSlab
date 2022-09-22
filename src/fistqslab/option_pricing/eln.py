@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from collections import namedtuple
 from dataclasses import dataclass, field
 from functools import cached_property
 from operator import ge, gt
@@ -277,6 +278,9 @@ class BaseELN2(MonteCarlo2):
         return 1 / (1 + self.r) ** (self.T / 365)
 
 
+PriceDelta = namedtuple("PriceDelta", ["price", "delta"])
+
+
 @dataclass
 class ELN2(BaseELN2):
     """折价建仓"""
@@ -315,7 +319,9 @@ class ELN2(BaseELN2):
         res = np.hstack((upper_scenario, lower_scenario))
         return np.mean(res) * self.discount
 
-    def delta(self, t: int, St: NDArray[Shape["*"], Float64]):
+    def print_and_delta_at(
+        self, t: int, St: NDArray[Shape["*"], Float64], price_only=True
+    ):
         """计算 delta 值
 
         dsfParameters
@@ -337,21 +343,31 @@ class ELN2(BaseELN2):
         St_paths = left_paths * St[0]
         # print(St_paths)
         epsilon = 0.001
-        up_p = type(self)(
+        price = type(self)(
             codes=self.codes,
             real_S0=self.real_S0,
-            all_relative_S_data=St_paths + epsilon,
+            all_relative_S_data=St_paths,
             T=left_t,
             strike=self.strike,
             issue_price=self.issue_price,
         ).price()
-        lo_p = type(self)(
-            codes=self.codes,
-            real_S0=self.real_S0,
-            all_relative_S_data=St_paths - epsilon,
-            T=left_t,
-            strike=self.strike,
-            issue_price=self.issue_price,
-        ).price()
-        # print((up_p - lo_p) / (2 * epsilon))
-        return (up_p - lo_p) / (2 * epsilon)
+        delta = None
+        if not price_only:
+            up_p = type(self)(
+                codes=self.codes,
+                real_S0=self.real_S0,
+                all_relative_S_data=St_paths + epsilon,
+                T=left_t,
+                strike=self.strike,
+                issue_price=self.issue_price,
+            ).price()
+            lo_p = type(self)(
+                codes=self.codes,
+                real_S0=self.real_S0,
+                all_relative_S_data=St_paths - epsilon,
+                T=left_t,
+                strike=self.strike,
+                issue_price=self.issue_price,
+            ).price()
+            delta = (up_p - lo_p) / (2 * epsilon)
+        return PriceDelta(price, delta)
