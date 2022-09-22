@@ -12,10 +12,7 @@ import numpy as np
 import pandas as pd
 
 from fistqslab.option_pricing.eln import ELN2, get_eln_strike_from_issue_price
-from fistqslab.option_pricing.util import (
-    data_path_to_codes_and_all_S_data,
-    get_all_price_path,
-)
+from fistqslab.option_pricing.util import data_path_to_codes_real_S0_relative_S
 
 ROOT = Path(".")
 IMG_DIR = ROOT / "img"
@@ -25,37 +22,37 @@ RESULT_DIR = DATA_DIR / "result"
 total_time_start = time.perf_counter()
 
 
-data180101 = get_all_price_path(DATA_DIR / "路径模拟数据/180101.csv")
-
-
-codes, all_S_data = data_path_to_codes_and_all_S_data(
+codes, real_S0, relative_S = data_path_to_codes_real_S0_relative_S(
     {"180101.csv": DATA_DIR / "路径模拟数据/180101.csv"}
 )
 
 
 def elnv(
     codes=codes,
-    all_S_data=all_S_data,
+    real_S0=real_S0,
+    relative_S=relative_S,
     strike=0.9404,
     issue_price=0.9828,
     T=64,
 ):
     op = ELN2(
         codes=codes,
-        all_S_data=all_S_data,
+        real_S0=real_S0,
+        all_relative_S_data=relative_S,
         strike=strike,
         issue_price=issue_price,
         T=T,
     )
-    return op.price
+    return op.price()
 
 
 if __name__ == "__main__":
 
     start = 0.9
-    step = 0.005
-    end = 1 + step
-    strike_arange = np.arange(start, end, step)
+    stop = 1
+    num = 100
+    strike_arange = np.linspace(start, stop, num)
+
     prices = list(
         map(
             lambda strike: elnv(strike=strike),
@@ -65,12 +62,8 @@ if __name__ == "__main__":
     se = pd.Series(prices, index=strike_arange)
     issue_price = 0.9828
     strike_price = get_eln_strike_from_issue_price(
-        all_S_data={
-            "180101": data180101,
-        },
-        issue_price=0.9828,
+        codes, real_S0, relative_S, issue_price=0.9828, T=64
     )
-    print(strike_price)
     se.plot(c="#f89588")
     plt.axvline(strike_price, c="#76da91", ls="--")
     plt.axhline(issue_price, c="#63b2ee", ls="--")

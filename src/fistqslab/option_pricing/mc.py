@@ -126,48 +126,28 @@ class MonteCarlo2:
 
     # 底层标的代码
     codes: list[str]
-    # 保存全部数据, 维度依次是: 标的数、路径数、节点数
-    all_S_data: NDArray[Shape["X, Y, *"], Float64] = field(repr=False)
+    # 相对real_S0的股价
+    # 维度依次是: 标的数、路径数、节点数
+    all_relative_S_data: NDArray[Shape["X, Y, *"], Float64] = field(repr=False)
+    # 标的真实初始价格
+    real_S0: NDArray[Shape["*"], Float64]
     # 投资期(以自然日计)
     T: int
     # 这个 T 是自然日数而不是交易日数
     # 但是股价路径是按交易日模拟的
     # 暂时假设用 TD = T * 250 // 365 代表对应的交易日数
     TD: int = field(init=False)
-    # 提取所需时间的数据
-    S: NDArray[Shape["X, Y, Z"], Float64] = field(init=False)
-    # key: 标的代码, value: 标的初始价格
-    S0: NDArray[Shape["*"], Float64] = field(init=False)
+    # 所需时间的股价路径
+    # NDArray[Shape["X, Y, Z"], Float64]
+    #     X = len(self.codes)
+    #     Y = self.number_of_paths
+    #     Z = self.TD + 1
+    relative_S: NDArray[Shape["X, Y, Z"], Float64] = field(init=False)
     # 模拟路径条数(约定每个标的模拟路径条数相等)
     number_of_paths: int = field(init=False)
 
     def __post_init__(self):
-        # 各个标的价格路径迭代器函数
 
         self.TD: int = self.T * 250 // 365
-        self.S = self.all_S_data[:, :, : self.TD + 1]
-        self.S0 = self.all_S_data[:, 0, 0]
-        self.number_of_paths = self.all_S_data.shape[1]
-
-    # def delta(self, t: int, St_ls: list[float]):
-    #     """计算 delta 值
-
-    #     dsfParameters
-    #     ----------
-    #     t : int
-    #         时刻, 从 0 到 T 的整数
-    #     St_ls: list[float]
-    #         t 时刻标的的价格
-    #     """
-    #     assert len(St_ls) == 1, "目前只支持单只"
-    #     # 剩余自然日
-    #     left_t = self.T - t
-    #     # 剩余交易日
-    #     left_td = left_t * 250 // 365
-    #     all_path_arr = self.get_all_path_arr()
-    #     left_path_arr = all_path_arr[:, :, : left_td + 1]
-    #     print(left_path_arr)
-    #     # 构造从t时刻出发的路径
-    #     print(left_path_arr / np.array(self.S0_ls) * np.array(St_ls))
-    #     raise
-    #     print(np.array(St_ls))
+        self.relative_S = self.all_relative_S_data[:, :, : self.TD + 1]
+        self.number_of_paths = self.all_relative_S_data.shape[1]

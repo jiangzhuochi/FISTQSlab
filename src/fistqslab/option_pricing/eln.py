@@ -4,7 +4,7 @@ from functools import cached_property
 from operator import ge, gt
 
 import numpy as np
-from nptyping import Float64, NDArray, Shape
+from nptyping import Bool, Float64, NDArray, Shape
 from scipy.optimize import fsolve
 
 from .abc_option import BaseOption
@@ -225,42 +225,32 @@ class RELN(BaseELN):
 
 
 def get_eln_strike_from_issue_price(
+    codes,
+    real_S0,
+    all_relative_S_data,
     issue_price: float,
-    all_S_data: dict[str, NDArray],
-    number_of_paths=20000,
     T=64,
 ):
-    """根据 ELN 票据价求行权价
-
-    Parameters
-    ----------
-    issue_price : float
-        票据价
-    all_S_data : dict[str, NDArray]
-        路径数据
-    number_of_paths : int, optional
-        路径条数, by default 20000
-    T : int, optional
-        日期(自然日), by default 64
-    """
+    """根据 ELN 票据价求行权价"""
 
     def f(
         strike,
     ):
-        op = ELN(
-            all_S_data=all_S_data,
-            number_of_paths=number_of_paths,
+        op = ELN2(
+            codes=codes,
+            real_S0=real_S0,
+            all_relative_S_data=all_relative_S_data,
             strike=strike,
             issue_price=issue_price,
             T=T,
         )
-        return op.pricev - issue_price
+        return op.price() - issue_price
 
     return round(fsolve(f, x0=0.95, xtol=1e-5)[0], 4)
 
 
 @dataclass
-class BaseELN2(BaseOption, MonteCarlo2):
+class BaseELN2(MonteCarlo2):
     """建仓系列基类
     1. 折价建仓 (Worst of) Equity Linked Notes, (Wo)ELN
     2. 溢价平仓, Reverse Equity Linked Notes, RELN
@@ -268,8 +258,6 @@ class BaseELN2(BaseOption, MonteCarlo2):
 
     # 行权比率(行权价与初始价的比)
     strike: float
-    # key: 标的代码, value: 标的具体行权价(元, 根据 S0 和 strike 计算)
-    strike_price: NDArray[Shape["*"], Float64] = field(init=False)
     # 票据发行价率(发行价格与面值的比)
     issue_price: float
     # 年化息率(根据 T 和 issue_price 计算)
@@ -282,9 +270,6 @@ class BaseELN2(BaseOption, MonteCarlo2):
     def __post_init__(self):
 
         super().__post_init__()
-
-        # 各个标的具体行权价
-        self.strike_price = self.S0 * self.strike
 
     @property
     def discount(self):
@@ -303,30 +288,70 @@ class ELN2(BaseELN2):
 
         super().__post_init__()
 
-        # 年化息率
-        self.yield_ = (1 / self.issue_price - 1) * 365 / self.T
+        try:
+            # 年化息率
+            self.yield_ = (1 / self.issue_price - 1) * 365 / self.T
+        except Exception:
+            pass
 
-    @property
     def price(self):
         """向量化定价"""
 
         # 期末价格, 注意转置, 第 0 维路径数, 第 1 维品种数
-        ST_arr: NDArray[Shape["Y, X"], Float64] = self.S[:, :, -1].T
-        # print(ST_arr.shape)
-        # 将行权价格转换为数组, 第 0 维品种数
-        strike_arr: NDArray[Shape["X,"], Float64] = self.strike_price
+        ST_arr: NDArray[Shape["Y, X"], Float64] = self.relative_S[:, :, -1].T
         # 所有的品种都需满足条件
-        # 广播运算, ST_arr >= strike_arr: Shape["Y, X"]
+        # 广播运算, ST_arr >= self.strike: Shape["Y, X"]
         # np.all axis=1 最后的维度 (品种) 消失, 变为 Shape["Y,"]
-        sig: NDArray[Shape["Y,"], Float64] = np.all(ST_arr >= strike_arr, axis=1)
-        # 大于等于行权价的情况
-        upper_scenario = self.nominal_amount * np.ones(np.count_nonzero(sig))
+        sig: NDArray[Shape["Y,"], Bool] = np.all(ST_arr >= self.strike, axis=1)
+        # 大于等于行权价的情况, Y1 为 sig 中 True 的数量
+        upper_scenario: NDArray[Shape["Y1,"], Float64] = np.ones(np.count_nonzero(sig))
         # 表现最差 (即跌幅最大) 的品种 (第 1 维)
-        # ST_arr[~sig]: Shape["Y1, X"], Y1 为 sig 中 False 的数量
-        # np.min axis=1 最后的维度 (品种) 消失, 变为 Shape["Y1,"]
+        # Y2 为 sig 中 False 的数量, Y1 + Y2 = Y
+        # np.min axis=1 最后的维度 (品种) 消失, 变为 Shape["Y2,"]
         # 小于行权价的情况
-        lower_scenario: NDArray[Shape["Y1,"], Float64] = self.nominal_amount * np.min(
-            ST_arr[~sig] / strike_arr, axis=1  # type:ignore
+        lower_scenario: NDArray[Shape["Y2,"], Float64] = np.min(
+            ST_arr[~sig] / self.strike, axis=1
         )
         res = np.hstack((upper_scenario, lower_scenario))
-        return np.mean(res) * self.discount / self.nominal_amount
+        return np.mean(res) * self.discount
+
+    def delta(self, t: int, St: NDArray[Shape["*"], Float64]):
+        """计算 delta 值
+
+        dsfParameters
+        ----------
+        t : int
+            时刻, 从 0 到 T 的整数
+        St:  NDArray[Shape["X,"], Float64]
+            t 时刻标的与real_S0相对价格
+        """
+
+        assert len(St) == 1, "目前只支持单只"
+        # 剩余自然日
+        left_t = self.T - t
+        # 剩余交易日
+        left_td = left_t * 250 // 365
+        # 1 只产品, Y 条路径, left_td + 1 个节点
+        left_paths = self.relative_S[:, :, : left_td + 1]
+        # 构造从以t时刻价格涨跌为起始的路径, 只支持单只
+        St_paths = left_paths * St[0]
+        # print(St_paths)
+        epsilon = 0.001
+        up_p = type(self)(
+            codes=self.codes,
+            real_S0=self.real_S0,
+            all_relative_S_data=St_paths + epsilon,
+            T=left_t,
+            strike=self.strike,
+            issue_price=self.issue_price,
+        ).price()
+        lo_p = type(self)(
+            codes=self.codes,
+            real_S0=self.real_S0,
+            all_relative_S_data=St_paths - epsilon,
+            T=left_t,
+            strike=self.strike,
+            issue_price=self.issue_price,
+        ).price()
+        # print((up_p - lo_p) / (2 * epsilon))
+        return (up_p - lo_p) / (2 * epsilon)

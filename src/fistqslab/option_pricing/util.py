@@ -178,9 +178,11 @@ def find_worst_target(S0: dict[str, float], ST: dict[str, float]) -> tuple[str, 
     return next(iter(sorted(pct_chts.items(), key=lambda x: x[1])))
 
 
-def data_path_to_codes_and_all_S_data(data_path: dict[str, Path]):
-    """将数据路径字典转换为代码和数组"""
+def data_path_to_codes_real_S0_relative_S(data_path: dict[str, Path]):
+    """将数据路径字典转换为代码、初始真实股价和相对股价数组"""
 
     codes = list(data_path.keys())
     all_S_data = np.array([get_all_price_path(data_path[key]) for key in codes])
-    return codes, all_S_data
+    real_S0 = all_S_data[:, 0, 0]
+    relative_S = all_S_data / all_S_data[:, :, :1]
+    return codes, real_S0, relative_S
