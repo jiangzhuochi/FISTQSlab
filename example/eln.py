@@ -1,16 +1,25 @@
 """
-对于ELN而言, 行权价越高, 票据价越低, 具有单调性
+在投资者视角, 对于ELN而言, 行权价越高, 票据价越低, 具有单调性
 绘制横坐标为行权价, 纵坐标为票据价, 曲线具有负斜率并凹向原点
 当票据价为98.28%(年化10%收益)时, 用牛顿法定价行权价为94.09%
 
-对于ELN的Delta模拟, 发现和short put的Delta类似
-单调递减, 在strike附近gamma最大
+对于ELN的delta模拟, 发现和short put的delta类似
+单调递减, gamma为负, 在strike附近gamma绝对值最大
 不同之处在于ELN是有杠杆的, 杠杆为1/strike
 S变小的渐近线为y=1/strike
 S变大的渐近线为y=0
 
 由于在下部承担的风险加了杠杆
 所以如果把ELN的票息折现值比作期权费, 那么比short put拿到的期权费更高
+
+由于券商卖出ELN获得正gamma
+在此期间券商delta对冲是高抛低吸
+赚取的对冲收益用来支付对投资者承诺的票息
+
+日度delta对冲模拟一千条路径, 平均期末损益为0.00016, 即万分之1.6(理想情况为0)
+即如果名义本金是100万元, 那么到期平均损益为160元, 最大损益不超过2%.
+
+如果券商盈利, 则真实strike比牛顿法定价的strike要更高
 """
 
 import time
@@ -27,6 +36,8 @@ ROOT = Path(".")
 IMG_DIR = ROOT / "img"
 DATA_DIR = ROOT / "data"
 RESULT_DIR = DATA_DIR / "result"
+
+EXAMPLT_DATA = ROOT / "example" / "data"
 
 total_time_start = time.perf_counter()
 
@@ -152,7 +163,7 @@ def delta_hedging():
     # print(sample_delta_hedging_paths)
 
     return_ = []
-    for npath in range(0, 20000, 50):
+    for npath in range(0, 20000, 20):
         price_delta_list = []
         S = []
         for i in range(op.T + 1):
@@ -182,9 +193,12 @@ def delta_hedging():
         # plt.plot(np.array(cbs))
         # plt.show()
 
-    plt.hist(np.array(return_))
-    plt.xlabel("relative return, bench = S0")
-    plt.ylabel("frequency / group spacing")
+    return_arr = np.array(return_)
+    pd.DataFrame(return_arr).to_csv(EXAMPLT_DATA / "eln.csv")
+    print(np.mean(return_arr))
+    plt.hist(return_arr)
+    plt.xlabel("relative return")
+    plt.ylabel("frequency")
     plt.show()
 
 

@@ -265,8 +265,6 @@ class BaseELN2(MonteCarlo2):
     yield_: float = field(init=False)
     # 无风险收益率(默认值为1年期存款基准利率转化为连续复利收益率)
     r: float = np.log(1 + 0.015)
-    # 名义本金, ELN 和 RELN 有所不同, 在子类中具体指定
-    nominal_amount: float = field(init=False)
 
     def __post_init__(self):
 
@@ -284,9 +282,6 @@ PriceDelta = namedtuple("PriceDelta", ["price", "delta"])
 @dataclass
 class ELN2(BaseELN2):
     """折价建仓"""
-
-    # 名义本金(票据面值)
-    nominal_amount: float = 1e6
 
     def __post_init__(self):
 
@@ -371,3 +366,109 @@ class ELN2(BaseELN2):
             ).price()
             delta = (up_p - lo_p) / (2 * epsilon)
         return PriceDelta(price, delta)
+
+
+@dataclass
+class RELN2(BaseELN2):
+    """溢价平仓
+    注: 在RELN中, issue_price - 1 为区间利息
+    """
+
+    # 标的券数量
+    number_of_securities: NDArray[Shape["*"], Float64] = field(init=False)
+
+    def __post_init__(self):
+
+        super().__post_init__()
+
+        assert len(self.real_S0) == 1, "目前仅支持单只"
+        # 名义本金为 1
+        self.number_of_securities = 1 / self.real_S0
+
+        try:
+            # 年化息率
+            self.yield_ = (self.issue_price - 1) * 365 / self.T
+        except Exception:
+            pass
+
+    def price(self):
+        ST_arr: NDArray[Shape["Y, X"], Float64] = self.relative_S[:, :, -1].T
+        # print(ST_arr)
+        sig: NDArray[Shape["Y,"], Bool] = np.all(ST_arr > self.strike, axis=1)
+        # 大于行权价的情况, Y1 为 sig 中 True 的数量
+        # 到期日, 所有标的价格 ST_arr > 行权价 strike, 投资者以行权价卖掉股票, 同时拿到利息
+        upper_scenario: NDArray[Shape["Y1,"], Float64] = np.ones(
+            np.count_nonzero(sig)
+        ) * (self.strike + self.issue_price - 1)
+        # 表现最差 (即跌幅最大) 的品种 (第 1 维)
+        # Y2 为 sig 中 False 的数量, Y1 + Y2 = Y
+        # np.min axis=1 最后的维度 (品种) 消失, 变为 Shape["Y2,"]
+        # 小于等于行权价的情况
+        # 到期日, 标的价格 ST <= 行权价 strike_price, 投资者拿回股票, 同时拿到利息
+        lower_scenario: NDArray[Shape["Y2,"], Float64] = (
+            np.min(ST_arr[~sig], axis=1) + self.issue_price - 1
+        )
+        res = np.hstack((upper_scenario, lower_scenario))
+        return np.mean(res) * self.discount
+
+    # def do_pricing_logic_in_one_path(
+    #     self, i: int, arr: NDArray[Shape["A, B"], Float64]
+    # ) -> float:
+
+    #     # print("{:-^20}".format(f" path {i} "))
+    #     assert arr.shape == (
+    #         len(self.codes),
+    #         self.TD + 1,
+    #     ), f"{arr.shape} != {(len(self.codes), self.TD + 1)}"
+    #     # 该路径的期末价格
+    #     ST: dict[str, float] = dict(zip(self.codes, arr[:, -1]))
+    #     if cmp_dict_all_items(ST, self.strike_price, gt):
+    #         # print(">", ST, self.strike_price)
+    #         # print("+=========", self.scenario_ST_gt_strike_pnl)
+    #         return self.scenario_ST_gt_strike_pnl
+    #     else:
+    #         # print("<=", ST, self.strike_price)
+    #         # print(self.scenario_ST_le_strike_pnl(ST))
+    #         return self.scenario_ST_le_strike_pnl(ST)
+
+    # # @cached_property
+    # # def scenario_ST_gt_strike_pnl(self):
+    # #     """到期日, 标的价格 ST > 行权价 strike_price, 投资者以行权价卖掉股票, 同时拿到利息"""
+
+    # #     return self.discount * (
+    # #         self.nominal_amount * self.strike
+    # #         + self.nominal_amount * (self.issue_price - 1)
+    # #     )
+
+    # # def scenario_ST_le_strike_pnl(self, ST):
+    # #     """到期日, 标的价格 ST <= 行权价 strike_price, 投资者拿回股票, 同时拿到利息"""
+
+    # #     _, s = get_one_item_dict_kv(ST)
+    # #     _, n = get_one_item_dict_kv(self.number_of_securities)
+
+    # #     return self.discount * (s * n + self.nominal_amount * (self.issue_price - 1))
+
+
+def get_reln_issue_price(
+    codes,
+    real_S0,
+    all_relative_S_data,
+    strike: float,
+    T=64,
+):
+    """给定行权价, 求issue_price"""
+
+    def f(
+        issue_price,
+    ):
+        op = RELN2(
+            codes=codes,
+            real_S0=real_S0,
+            all_relative_S_data=all_relative_S_data,
+            strike=strike,
+            issue_price=issue_price,
+            T=T,
+        )
+        return op.price() - 1
+
+    return round(fsolve(f, x0=0.95, xtol=1e-5)[0], 4)
