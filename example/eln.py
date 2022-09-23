@@ -52,7 +52,7 @@ def elnv(
         issue_price=issue_price,
         T=T,
     )
-    return op.price()
+    return op
 
 
 def eln_find_strike():
@@ -63,7 +63,7 @@ def eln_find_strike():
 
     prices = list(
         map(
-            lambda strike: elnv(strike=strike),
+            lambda strike: elnv(strike=strike).price(),
             strike_arange,
         )
     )
@@ -104,7 +104,7 @@ def eln_delta(
         [
             pd.Series(
                 [
-                    op.print_and_delta_at(t, np.array([St]), price_only=False).delta
+                    op.price_and_delta_at(t, np.array([St]), price_only=False).delta
                     for St in relative_St_arr
                 ],
                 index=relative_St_arr,
@@ -129,7 +129,7 @@ def eln_delta(
         [
             pd.Series(
                 [
-                    op.print_and_delta_at(t, np.array([St])).price
+                    op.price_and_delta_at(t, np.array([St])).price
                     for St in relative_St_arr
                 ],
                 index=relative_St_arr,
@@ -143,7 +143,53 @@ def eln_delta(
     plt.show()
 
 
+def delta_hedging():
+    op = elnv()
+    # print(op)
+    # print(op.price())
+    # 先取1条
+    sample_delta_hedging_paths = op.relative_S[0, 0, :]
+    # print(sample_delta_hedging_paths)
+
+    return_ = []
+    for npath in range(0, 20000, 50):
+        price_delta_list = []
+        S = []
+        for i in range(op.T + 1):
+            St = np.array([op.relative_S[0, npath, i * 250 // 365]])
+            S.append(St[0])
+            price_delta_list.append(op.price_and_delta_at(i, St, price_only=False))
+        price_delta = np.array(price_delta_list)
+        prices = price_delta[:, 0]
+        deltas = price_delta[:, 1]
+        delta_chgs = np.diff(deltas)
+        # 第1天往后, delta变大, 就买股票, 反之就卖(对卖方而言, 相当于高抛低吸)
+        delta_rehedge_cfs = -delta_chgs * S[1:]
+        # 第0天, 卖期权(卖方负delta), 拿现金, 买股票
+        start_cbs = prices[0] - deltas[0] * S[0]
+        cbs = [start_cbs]
+        for cf in delta_rehedge_cfs:
+            prev_cash = cbs[-1]
+            new_cash = prev_cash * (1 + 0.015 / 365)
+            cb = new_cash + cf
+            cbs.append(cb)
+        # 最后一天, 对方行权, 按情况返还现金
+        if S[-1] > 0.9404:
+            cbs[-1] = cbs[-1] - 1 + deltas[-1] * S[-1]
+        else:
+            cbs[-1] = cbs[-1] - 1 / 0.9404 * S[-1] + deltas[-1] * S[-1]
+        return_.append(cbs[-1])
+        # plt.plot(np.array(cbs))
+        # plt.show()
+
+    plt.hist(np.array(return_))
+    plt.xlabel("relative return, bench = S0")
+    plt.ylabel("frequency / group spacing")
+    plt.show()
+
+
 if __name__ == "__main__":
 
-    eln_find_strike()
-    eln_delta()
+    # eln_find_strike()
+    # eln_delta()
+    delta_hedging()

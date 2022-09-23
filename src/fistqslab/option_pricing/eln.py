@@ -319,7 +319,7 @@ class ELN2(BaseELN2):
         res = np.hstack((upper_scenario, lower_scenario))
         return np.mean(res) * self.discount
 
-    def print_and_delta_at(
+    def price_and_delta_at(
         self, t: int, St: NDArray[Shape["*"], Float64], price_only=True
     ):
         """计算 delta 值
