@@ -411,42 +411,58 @@ class RELN2(BaseELN2):
         res = np.hstack((upper_scenario, lower_scenario))
         return np.mean(res) * self.discount
 
-    # def do_pricing_logic_in_one_path(
-    #     self, i: int, arr: NDArray[Shape["A, B"], Float64]
-    # ) -> float:
+    def price_and_delta_at(
+        self, t: int, St: NDArray[Shape["*"], Float64], price_only=True
+    ):
+        """计算 delta 值
 
-    #     # print("{:-^20}".format(f" path {i} "))
-    #     assert arr.shape == (
-    #         len(self.codes),
-    #         self.TD + 1,
-    #     ), f"{arr.shape} != {(len(self.codes), self.TD + 1)}"
-    #     # 该路径的期末价格
-    #     ST: dict[str, float] = dict(zip(self.codes, arr[:, -1]))
-    #     if cmp_dict_all_items(ST, self.strike_price, gt):
-    #         # print(">", ST, self.strike_price)
-    #         # print("+=========", self.scenario_ST_gt_strike_pnl)
-    #         return self.scenario_ST_gt_strike_pnl
-    #     else:
-    #         # print("<=", ST, self.strike_price)
-    #         # print(self.scenario_ST_le_strike_pnl(ST))
-    #         return self.scenario_ST_le_strike_pnl(ST)
+        dsfParameters
+        ----------
+        t : int
+            时刻, 从 0 到 T 的整数
+        St:  NDArray[Shape["X,"], Float64]
+            t 时刻标的与real_S0相对价格
+        """
 
-    # # @cached_property
-    # # def scenario_ST_gt_strike_pnl(self):
-    # #     """到期日, 标的价格 ST > 行权价 strike_price, 投资者以行权价卖掉股票, 同时拿到利息"""
-
-    # #     return self.discount * (
-    # #         self.nominal_amount * self.strike
-    # #         + self.nominal_amount * (self.issue_price - 1)
-    # #     )
-
-    # # def scenario_ST_le_strike_pnl(self, ST):
-    # #     """到期日, 标的价格 ST <= 行权价 strike_price, 投资者拿回股票, 同时拿到利息"""
-
-    # #     _, s = get_one_item_dict_kv(ST)
-    # #     _, n = get_one_item_dict_kv(self.number_of_securities)
-
-    # #     return self.discount * (s * n + self.nominal_amount * (self.issue_price - 1))
+        assert len(St) == 1, "目前只支持单只"
+        # 剩余自然日
+        left_t = self.T - t
+        # 剩余交易日
+        left_td = left_t * 250 // 365
+        # 1 只产品, Y 条路径, left_td + 1 个节点
+        left_paths = self.relative_S[:, :, : left_td + 1]
+        # 构造从以t时刻价格涨跌为起始的路径, 只支持单只
+        St_paths = left_paths * St[0]
+        # print(St_paths)
+        epsilon = 0.001
+        price = type(self)(
+            codes=self.codes,
+            real_S0=self.real_S0,
+            all_relative_S_data=St_paths,
+            T=left_t,
+            strike=self.strike,
+            issue_price=self.issue_price,
+        ).price()
+        delta = None
+        if not price_only:
+            up_p = type(self)(
+                codes=self.codes,
+                real_S0=self.real_S0,
+                all_relative_S_data=St_paths + epsilon,
+                T=left_t,
+                strike=self.strike,
+                issue_price=self.issue_price,
+            ).price()
+            lo_p = type(self)(
+                codes=self.codes,
+                real_S0=self.real_S0,
+                all_relative_S_data=St_paths - epsilon,
+                T=left_t,
+                strike=self.strike,
+                issue_price=self.issue_price,
+            ).price()
+            delta = (up_p - lo_p) / (2 * epsilon)
+        return PriceDelta(price, delta)
 
 
 def get_reln_issue_price(
