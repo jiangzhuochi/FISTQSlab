@@ -4,7 +4,7 @@ import numpy as np
 from nptyping import Float64, NDArray, Shape
 
 from .abc_option import BaseOption
-from .mc import MonteCarlo
+from .mc import MonteCarlo, MonteCarlo2
 from .util import get_one_item_dict_kv
 
 
@@ -82,3 +82,31 @@ class LeverageNote(BaseOption, MonteCarlo):
 
     def theta(self):
         pass
+
+
+@dataclass
+class LeverageNote2(MonteCarlo2):
+
+    # 杠杆倍数
+    leverage_multiple: float
+    # 股息率(年化)
+    dividend_rate: float
+    # 杠杆成本
+    leverage_cost: float
+    # 票据发行价
+    issue_price: float = field(init=False)
+    # 无风险收益率(默认值为1年期存款基准利率转化为连续复利收益率)
+    r: float = np.log(1 + 0.015)
+
+    def __post_init__(self):
+
+        super().__post_init__()
+        self.issue_price = 1 + self.leverage_cost
+
+    def price(self):
+        return 1
+
+    @property
+    def discount(self):
+        """折现因子"""
+        return 1 / (1 + self.r) ** (self.T / 365)

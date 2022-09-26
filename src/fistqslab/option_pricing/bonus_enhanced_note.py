@@ -4,7 +4,7 @@ import numpy as np
 from nptyping import Float64, NDArray, Shape
 
 from .abc_option import BaseOption
-from .mc import MonteCarlo
+from .mc import MonteCarlo, MonteCarlo2
 from .util import find_worst_target
 
 
@@ -106,3 +106,31 @@ class AutoCallBEN(BaseBEN):
     # 观察频率(以天计)
     # TODO: 通过观察频率计算或者直接给出一个观察日列表, 特别注意交易日和自然日的对应
     autocall_frequency: int = field(kw_only=True)
+
+
+@dataclass
+class BaseBEN2(MonteCarlo2):
+
+    # 下界
+    put_strike: float
+    # 上界
+    coupon_barrier: float
+    # 票息
+    bonus_coupon: float
+    # 最低赎回比例 Minimum Redemption Amount
+    min_redemption: float | None = None
+    # 无风险收益率(默认值为1年期存款基准利率转化为连续复利收益率)
+    r: float = np.log(1 + 0.015)
+
+    def __post_init__(self):
+
+        super().__post_init__()
+        self.TD = self.T * 250 // 365
+
+    def price(self):
+        return 1
+
+    @property
+    def discount(self):
+        """折现因子"""
+        return 1 / (1 + self.r) ** (self.T / 365)

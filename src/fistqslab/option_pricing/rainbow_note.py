@@ -4,7 +4,7 @@ import numpy as np
 from nptyping import Float64, NDArray, Shape
 
 from .abc_option import BaseOption
-from .mc import MonteCarlo
+from .mc import MonteCarlo, MonteCarlo2
 from .util import find_worst_target
 
 
@@ -89,3 +89,32 @@ class RainbowNote(BaseOption, MonteCarlo):
 
     def theta(self):
         pass
+
+
+@dataclass
+class RainbowNote2(MonteCarlo2):
+
+    # 下界
+    put_strike: float
+    # 低上界
+    lower_call_strike: float
+    # 上方参与率
+    upside_participation: float
+    # 票息(年化)
+    guaranteed_flat_coupon: float
+    # 无风险收益率(默认值为1年期存款基准利率转化为连续复利收益率)
+    r: float = np.log(1 + 0.015)
+
+    def __post_init__(self):
+
+        super().__post_init__()
+        self.TD = self.T * 250 // 365
+
+    @property
+    def price(self):
+        return 1
+
+    @property
+    def discount(self):
+        """折现因子"""
+        return 1 / (1 + self.r) ** (self.T / 365)
