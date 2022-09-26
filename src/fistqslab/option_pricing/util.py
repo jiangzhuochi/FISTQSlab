@@ -1,4 +1,5 @@
 import json
+from collections import namedtuple
 from functools import partial
 from pathlib import Path
 from typing import Callable, Iterator, TypeVar
@@ -9,6 +10,7 @@ import pandas as pd
 from nptyping import Float64, NDArray, Shape
 
 R = TypeVar("R")
+PriceDelta = namedtuple("PriceDelta", ["price", "delta"])
 
 
 class DataFrameJSONEncoder(json.JSONEncoder):

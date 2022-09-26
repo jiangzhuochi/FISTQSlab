@@ -1,4 +1,3 @@
-from collections import namedtuple
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -6,6 +5,7 @@ from nptyping import Bool, Float64, NDArray, Shape
 from scipy.optimize import fsolve
 
 from .mc import MonteCarlo2
+from .util import PriceDelta
 
 
 @dataclass
@@ -32,9 +32,6 @@ class BaseELN2(MonteCarlo2):
     def discount(self):
         """折现因子"""
         return 1 / (1 + self.r) ** (self.T / 365)
-
-
-PriceDelta = namedtuple("PriceDelta", ["price", "delta"])
 
 
 @dataclass

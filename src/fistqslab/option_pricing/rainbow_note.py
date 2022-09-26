@@ -110,7 +110,6 @@ class RainbowNote2(MonteCarlo2):
         super().__post_init__()
         self.TD = self.T * 250 // 365
 
-    @property
     def price(self):
         return 1
 
