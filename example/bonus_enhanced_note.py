@@ -1,18 +1,33 @@
-import os
 import time
 from pathlib import Path
-from pprint import pprint
 
 import matplotlib.pyplot as plt
-import mpl_toolkits.mplot3d
 import numpy as np
 import pandas as pd
+from cycler import cycler
 from matplotlib import cm
-from mpl_toolkits.mplot3d.axes3d import Axes3D
 
 from fistqslab.option_pricing.bonus_enhanced_note import BaseBEN2
 from fistqslab.option_pricing.util import data_path_to_codes_real_S0_relative_S
 
+plt.rc(
+    "axes",
+    prop_cycle=cycler(
+        "color",
+        [
+            "#63b2ee",
+            "#76da91",
+            "#f8cb7f",
+            "#f89588",
+            "#7cd6cf",
+            "#9192ab",
+            "#7898e1",
+            "#efa666",
+            "#eddd86",
+            "#9987ce",
+        ],
+    ),
+)
 np.set_printoptions(precision=5, edgeitems=2)
 
 
@@ -30,7 +45,7 @@ total_time_start = time.perf_counter()
 codes, real_S0, relative_S = data_path_to_codes_real_S0_relative_S(
     {
         "180101.csv": DATA_DIR / "路径模拟数据/180101.csv",
-        "180201.csv": DATA_DIR / "路径模拟数据/180201.csv",
+        # "180201.csv": DATA_DIR / "路径模拟数据/180201.csv",
     }
 )
 
@@ -197,8 +212,106 @@ def bonus_enhanced_note_delta(min_redemption=0.8447):
     plt.show()
 
 
+def bonus_enhanced_note_delta_2ds0(min_redemption=0.8447):
+
+    op = bonus_enhanced_note(min_redemption=min_redemption)
+    relative_St_arr = np.linspace(0.7, 1.3, 150)
+
+    prices = pd.DataFrame(
+        [
+            pd.Series(
+                [
+                    op.price_and_delta_at(
+                        0,
+                        np.array([u0st, u1st]),
+                        underlying=0,
+                        price_only=False,
+                    ).delta
+                    for u0st in relative_St_arr
+                ],
+                index=relative_St_arr,
+            )
+            for u1st in [0.75, 0.85, 0.95, 1.05, 1.15, 1.25]
+        ]
+    ).T
+    plt.plot(prices)
+    plt.axhline(min_redemption, c="#76da91", ls="--", lw=0.5)
+    for u1st, y in zip(
+        [0.75, 0.85, 0.95, 1.05, 1.15, 1.25], [0.85, 0.95, 1.01, 1.055, 1.155, 1.255]
+    ):
+        plt.annotate(
+            f"u1st = {u1st}",
+            xy=(1.27, y),
+        )
+    plt.xlabel("u0st")
+    plt.ylabel("Price")
+    plt.show()
+
+
+def bonus_enhanced_note_price_2d_single(min_redemption=0.8447):
+
+    op = bonus_enhanced_note(min_redemption=min_redemption)
+    relative_St_arr = np.linspace(0.7, 1.3, 1000)
+    tlist = [365]
+    prices = pd.DataFrame(
+        [
+            pd.Series(
+                [
+                    op.price_and_delta_at(
+                        t,
+                        np.array([u0st]),
+                        underlying=0,
+                    ).price
+                    for u0st in relative_St_arr
+                ],
+                index=relative_St_arr,
+            )
+            for t in tlist
+        ]
+    ).T
+    prices.columns = np.array([f"{t=}" for t in tlist])
+    prices.plot()
+
+    plt.xlabel("S")
+    plt.ylabel("Price")
+    plt.legend()
+    plt.show()
+
+
+def bonus_enhanced_note_delta_2d_single(min_redemption=0.8447):
+
+    op = bonus_enhanced_note(min_redemption=min_redemption)
+    relative_St_arr = np.linspace(0.7, 1.3, 150)
+
+    prices = pd.DataFrame(
+        [
+            pd.Series(
+                [
+                    op.price_and_delta_at(
+                        0,
+                        np.array([u0st]),
+                        underlying=0,
+                        price_only=False,
+                    ).delta
+                    for u0st in relative_St_arr
+                ],
+                index=relative_St_arr,
+            )
+        ]
+    ).T
+    plt.plot(prices)
+    plt.axhline(min_redemption, c="#76da91", ls="--", lw=0.5)
+
+    plt.xlabel("u0st")
+    plt.ylabel("Price")
+    plt.show()
+
+
 if __name__ == "__main__":
     # bonus_enhanced_note_price_3d()
     # bonus_enhanced_note_price_2dst()
 
-    bonus_enhanced_note_delta()
+    # bonus_enhanced_note_delta()
+    # bonus_enhanced_note_delta_2ds0()
+    bonus_enhanced_note_price_2d_single()
+    # bonus_enhanced_note_delta_2d_single()

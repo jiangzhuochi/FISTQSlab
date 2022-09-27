@@ -115,7 +115,7 @@ class BaseBEN2(MonteCarlo2):
     put_strike: float
     # 上界
     coupon_barrier: float
-    # 票息
+    # 票息(区间收益)
     bonus_coupon: float
     # 最低赎回比例 Minimum Redemption Amount
     min_redemption: float | None = None
@@ -135,7 +135,7 @@ class BaseBEN2(MonteCarlo2):
 
         # 最差标的比 coupon_barrier 还要高
         s1 = np.fmax(
-            1 + self.bonus_coupon * self.T / 365,
+            1 + self.bonus_coupon,
             worst_pnl[worst_pnl >= self.coupon_barrier],
         )
         # 最差标的介于 coupon_barrier 和 put_strike 之间
