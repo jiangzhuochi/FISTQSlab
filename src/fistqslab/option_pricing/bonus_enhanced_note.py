@@ -5,7 +5,7 @@ from nptyping import Float64, NDArray, Shape
 
 from .abc_option import BaseOption
 from .mc import MonteCarlo, MonteCarlo2
-from .util import find_worst_target
+from .util import PriceDelta, find_worst_target
 
 
 @dataclass
@@ -128,7 +128,95 @@ class BaseBEN2(MonteCarlo2):
         self.TD = self.T * 250 // 365
 
     def price(self):
-        return 1
+
+        # 期末价格, 注意转置, 第 0 维路径数, 第 1 维品种数
+        ST_arr: NDArray[Shape["Y, X"], Float64] = self.relative_S[:, :, -1].T
+        worst_pnl = np.sort(ST_arr)[:, 0]
+
+        # 最差标的比 coupon_barrier 还要高
+        s1 = np.fmax(
+            1 + self.bonus_coupon * self.T / 365,
+            worst_pnl[worst_pnl >= self.coupon_barrier],
+        )
+        # 最差标的介于 coupon_barrier 和 put_strike 之间
+        s2 = np.ones(
+            np.count_nonzero(
+                (worst_pnl >= self.put_strike) & (worst_pnl < self.coupon_barrier)
+            )
+        )
+        # 最差标的低于 put_strike
+        s3 = np.fmax(
+            self.min_redemption or 0,
+            worst_pnl[worst_pnl < self.put_strike] / self.put_strike,
+        )
+
+        return self.discount * np.mean(np.hstack((s1, s2, s3)))
+
+    def price_and_delta_at(
+        self, t: int, St: NDArray[Shape["*"], Float64], underlying: int, price_only=True
+    ):
+        """计算 delta 值
+
+        dsfParameters
+        ----------
+        t : int
+            时刻, 从 0 到 T 的整数
+        underlying:  int
+            求哪一个资产的偏导数
+        St:  NDArray[Shape["X,"], Float64]
+            t 时刻标的与real_S0相对价格
+        """
+
+        assert len(St) == len(self.codes), f"标的数和价格数不一致"
+        # 剩余自然日
+        left_t = self.T - t
+        # 剩余交易日
+        left_td = left_t * 250 // 365
+        # X 只产品, Y 条路径, left_td + 1 个节点, 注意 copy
+        left_paths = self.relative_S[:, :, : left_td + 1].copy()
+
+        # 构造所有标的t时刻价格涨跌为起始的路径
+        for i, st in enumerate(St):
+            left_paths[i] = left_paths[i] * st
+        price = type(self)(
+            codes=self.codes,
+            real_S0=self.real_S0,
+            all_relative_S_data=left_paths,
+            T=left_t,
+            put_strike=self.put_strike,
+            coupon_barrier=self.coupon_barrier,
+            bonus_coupon=self.bonus_coupon,
+            min_redemption=self.min_redemption,
+        ).price()
+        delta = None
+        if not price_only:
+            epsilon = 0.001
+            upper = left_paths.copy()
+            upper[underlying] += epsilon
+            lower = left_paths.copy()
+            lower[underlying] -= epsilon
+            up_p = type(self)(
+                codes=self.codes,
+                real_S0=self.real_S0,
+                all_relative_S_data=upper,
+                T=left_t,
+                put_strike=self.put_strike,
+                coupon_barrier=self.coupon_barrier,
+                bonus_coupon=self.bonus_coupon,
+                min_redemption=self.min_redemption,
+            ).price()
+            lo_p = type(self)(
+                codes=self.codes,
+                real_S0=self.real_S0,
+                all_relative_S_data=lower,
+                T=left_t,
+                put_strike=self.put_strike,
+                coupon_barrier=self.coupon_barrier,
+                bonus_coupon=self.bonus_coupon,
+                min_redemption=self.min_redemption,
+            ).price()
+            delta = (up_p - lo_p) / (2 * epsilon)
+        return PriceDelta(price, delta)
 
     @property
     def discount(self):

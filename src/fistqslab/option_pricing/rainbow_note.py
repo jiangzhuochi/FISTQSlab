@@ -111,7 +111,25 @@ class RainbowNote2(MonteCarlo2):
         self.TD = self.T * 250 // 365
 
     def price(self):
-        return 1
+        
+        # 期末价格, 注意转置, 第 0 维路径数, 第 1 维品种数
+        ST_arr: NDArray[Shape["Y, X"], Float64] = self.relative_S[:, :, -1].T
+        worst_pnl = np.sort(ST_arr)[:, 0]
+        real_rate_of_return = self.guaranteed_flat_coupon * self.T / 365
+
+        # 最差标的比 coupon_barrier 还要高
+        s1 = worst_pnl[worst_pnl >= 1] + real_rate_of_return
+        # 最差标的介于 coupon_barrier 和 put_strike 之间
+        s2 = np.ones(
+            np.count_nonzero((worst_pnl >= self.put_strike) & (worst_pnl < 1))
+        ) * (1 + real_rate_of_return)
+        # 最差标的低于 put_strike
+        s3 = (
+            real_rate_of_return
+            + worst_pnl[worst_pnl < self.put_strike] / self.put_strike
+        )
+
+        return self.discount * np.mean(np.hstack((s1, s2, s3)))
 
     @property
     def discount(self):

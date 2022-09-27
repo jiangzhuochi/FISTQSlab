@@ -90,13 +90,12 @@ class ELN2(BaseELN2):
         # 1 只产品, Y 条路径, left_td + 1 个节点
         left_paths = self.relative_S[:, :, : left_td + 1]
         # 构造从以t时刻价格涨跌为起始的路径, 只支持单只
-        St_paths = left_paths * St[0]
-        # print(St_paths)
+        left_paths = left_paths * St[0]
         epsilon = 0.001
         price = type(self)(
             codes=self.codes,
             real_S0=self.real_S0,
-            all_relative_S_data=St_paths,
+            all_relative_S_data=left_paths,
             T=left_t,
             strike=self.strike,
             issue_price=self.issue_price,
@@ -106,7 +105,7 @@ class ELN2(BaseELN2):
             up_p = type(self)(
                 codes=self.codes,
                 real_S0=self.real_S0,
-                all_relative_S_data=St_paths + epsilon,
+                all_relative_S_data=left_paths + epsilon,
                 T=left_t,
                 strike=self.strike,
                 issue_price=self.issue_price,
@@ -114,7 +113,7 @@ class ELN2(BaseELN2):
             lo_p = type(self)(
                 codes=self.codes,
                 real_S0=self.real_S0,
-                all_relative_S_data=St_paths - epsilon,
+                all_relative_S_data=left_paths - epsilon,
                 T=left_t,
                 strike=self.strike,
                 issue_price=self.issue_price,
@@ -212,13 +211,12 @@ class RELN2(BaseELN2):
         # 1 只产品, Y 条路径, left_td + 1 个节点
         left_paths = self.relative_S[:, :, : left_td + 1]
         # 构造从以t时刻价格涨跌为起始的路径, 只支持单只
-        St_paths = left_paths * St[0]
-        # print(St_paths)
+        left_paths = left_paths * St[0]
         epsilon = 0.001
         price = type(self)(
             codes=self.codes,
             real_S0=self.real_S0,
-            all_relative_S_data=St_paths,
+            all_relative_S_data=left_paths,
             T=left_t,
             strike=self.strike,
             issue_price=self.issue_price,
@@ -228,7 +226,7 @@ class RELN2(BaseELN2):
             up_p = type(self)(
                 codes=self.codes,
                 real_S0=self.real_S0,
-                all_relative_S_data=St_paths + epsilon,
+                all_relative_S_data=left_paths + epsilon,
                 T=left_t,
                 strike=self.strike,
                 issue_price=self.issue_price,
@@ -236,7 +234,7 @@ class RELN2(BaseELN2):
             lo_p = type(self)(
                 codes=self.codes,
                 real_S0=self.real_S0,
-                all_relative_S_data=St_paths - epsilon,
+                all_relative_S_data=left_paths - epsilon,
                 T=left_t,
                 strike=self.strike,
                 issue_price=self.issue_price,
