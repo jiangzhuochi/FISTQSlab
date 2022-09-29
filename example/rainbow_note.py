@@ -1,6 +1,7 @@
 import os
 import time
 from pathlib import Path
+from urllib.parse import parse_qsl
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -131,6 +132,60 @@ def rainbow_note_delta_2d_single():
     plt.show()
 
 
+def delta_hedging(
+    npaths: int,
+    guaranteed_flat_coupon=6.5e-2 * 183 / 365,
+):
+    op = rainbow_note(guaranteed_flat_coupon=guaranteed_flat_coupon)
+
+    return_ = []
+    for npath in range(0, 20000, 20000 // npaths):
+        price_delta_list = []
+        S = []
+        for i in range(op.T + 1):
+            St = np.array([op.relative_S[0, npath, i * 250 // 365]])
+            S.append(St[0])
+            price_delta_list.append(
+                op.price_and_delta_at(i, St, underlying=0, price_only=False)
+            )
+        price_delta = np.array(price_delta_list)
+        prices = price_delta[:, 0]
+
+        deltas = price_delta[:, 1]
+        delta_chgs = np.diff(deltas)
+        # 第1天往后, delta变大, 就买股票, 反之就卖(对卖方而言, 相当于高抛低吸)
+        delta_rehedge_cfs = -delta_chgs * S[1:]
+        # 第0天, 卖期权(卖方负delta), 拿现金, 买股票
+        start_cbs = prices[0] - deltas[0] * S[0]
+        cbs = [start_cbs]
+        for cf in delta_rehedge_cfs:
+            prev_cash = cbs[-1]
+            new_cash = prev_cash * (1 + 0.015 / 365)
+            cb = new_cash + cf
+            cbs.append(cb)
+        # 最后一天, 清仓已有股票
+        cbs[-1] = cbs[-1] + deltas[-1] * S[-1] - guaranteed_flat_coupon
+        # 最后一天, 按情况返还现金
+        if S[-1] >= 1:
+            cbs[-1] = cbs[-1] - S[-1]
+        elif S[-1] < 1 and S[-1] >= 0.9:
+            cbs[-1] = cbs[-1] - 1
+        else:
+            cbs[-1] = cbs[-1] - S[-1] / 0.9
+        return_.append(cbs[-1])
+        # plt.plot(np.array(cbs))
+    # plt.show()
+
+    return_arr = np.array(return_)
+    pd.DataFrame(return_arr).to_csv(EXAMPLT_DATA / "rainbow.csv")
+    print(np.mean(return_arr))
+    plt.hist(return_arr)
+    plt.xlabel("relative return")
+    plt.ylabel("frequency")
+    plt.show()
+
+
 if __name__ == "__main__":
-    rainbow_note_price_2d_single()
-    rainbow_note_delta_2d_single()
+    # rainbow_note_price_2d_single()
+    # rainbow_note_delta_2d_single()
+    delta_hedging(100)

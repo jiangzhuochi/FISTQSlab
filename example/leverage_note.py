@@ -131,8 +131,8 @@ def delta_hedging(
             - ((S[-1] - 1 + dividend_rate) * leverage_multiple + 1)
         )
         return_.append(cbs[-1])
-        # plt.plot(np.array(cbs))
-        # plt.show()
+        plt.plot(np.array(cbs))
+    plt.show()
 
     return_arr = np.array(return_)
     pd.DataFrame(return_arr).to_csv(EXAMPLT_DATA / "reln.csv")
@@ -146,4 +146,4 @@ def delta_hedging(
 if __name__ == "__main__":
     # leverage_note_price()
     # leverage_note_delta()
-    delta_hedging(100)
+    delta_hedging(10)

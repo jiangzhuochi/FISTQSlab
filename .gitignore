@@ -5,3 +5,5 @@ scripts
 static
 templates
 **/.qspacesettings
+**/.DS_Store
+**/doc
