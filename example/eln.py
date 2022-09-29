@@ -154,7 +154,7 @@ def eln_delta(
     plt.show()
 
 
-def delta_hedging():
+def delta_hedging(npaths):
     op = elnv()
     # print(op)
     # print(op.price())
@@ -163,7 +163,7 @@ def delta_hedging():
     # print(sample_delta_hedging_paths)
 
     return_ = []
-    for npath in range(0, 20000, 20):
+    for npath in range(0, 20000, 20000 // npaths):
         price_delta_list = []
         S = []
         for i in range(op.T + 1):
@@ -190,8 +190,8 @@ def delta_hedging():
         else:
             cbs[-1] = cbs[-1] - 1 / 0.9404 * S[-1] + deltas[-1] * S[-1]
         return_.append(cbs[-1])
-        # plt.plot(np.array(cbs))
-        # plt.show()
+        plt.plot(np.array(cbs))
+    plt.show()
 
     return_arr = np.array(return_)
     pd.DataFrame(return_arr).to_csv(EXAMPLT_DATA / "eln.csv")
@@ -206,4 +206,4 @@ if __name__ == "__main__":
 
     # eln_find_strike()
     # eln_delta()
-    delta_hedging()
+    delta_hedging(10)

@@ -190,7 +190,7 @@ class BaseBEN2(MonteCarlo2):
         ).price()
         delta = None
         if not price_only:
-            epsilon = 0.001
+            epsilon = 0.0005
             upper = left_paths.copy()
             upper[underlying] += epsilon
             lower = left_paths.copy()

@@ -45,7 +45,7 @@ total_time_start = time.perf_counter()
 codes, real_S0, relative_S = data_path_to_codes_real_S0_relative_S(
     {
         "180101.csv": DATA_DIR / "路径模拟数据/180101.csv",
-        # "180201.csv": DATA_DIR / "路径模拟数据/180201.csv",
+        "180201.csv": DATA_DIR / "路径模拟数据/180201.csv",
     }
 )
 
@@ -63,7 +63,7 @@ def bonus_enhanced_note(
     return BaseBEN2(
         codes=codes,
         real_S0=real_S0,
-        all_relative_S_data=relative_S,
+        all_relative_S_data=all_relative_S_data,
         put_strike=put_strike,
         coupon_barrier=coupon_barrier,
         bonus_coupon=bonus_coupon,
@@ -79,8 +79,8 @@ def bonus_enhanced_note_price_3d(min_redemption=0.8447):
         1, 2, figsize=(12, 8), subplot_kw={"projection": "3d"}
     )
 
-    x_num = 30
-    y_num = 30
+    x_num = 40
+    y_num = 40
     u0_relative_St_arr = np.linspace(0.6, 1.2, x_num)
     u1_relative_St_arr = np.linspace(0.6, 1.2, y_num)
     X, Y = np.meshgrid(u0_relative_St_arr, u1_relative_St_arr)
@@ -124,8 +124,6 @@ def bonus_enhanced_note_price_3d(min_redemption=0.8447):
     ax2.plot_surface(  # type:ignore
         X, Y, prices, rstride=1, cstride=1, cmap=cm.get_cmap("CMRmap")
     )
-    ax2.set_xlabel("u0_S")
-    ax2.set_ylabel("u1_S")
     ax2.set_zlabel("Price")  # type:ignore
 
     plt.show()
@@ -135,7 +133,7 @@ def bonus_enhanced_note_price_2dst(min_redemption=0.8447):
 
     op = bonus_enhanced_note(min_redemption=min_redemption)
     relative_St_arr = np.linspace(0.7, 1.3, 300)
-
+    u1st_list = [0.75, 0.85, 0.95, 1.05, 1.15, 1.25]
     prices = pd.DataFrame(
         [
             pd.Series(
@@ -149,20 +147,15 @@ def bonus_enhanced_note_price_2dst(min_redemption=0.8447):
                 ],
                 index=relative_St_arr,
             )
-            for u1st in [0.75, 0.85, 0.95, 1.05, 1.15, 1.25]
+            for u1st in u1st_list
         ]
     ).T
-    plt.plot(prices)
+    prices.columns = np.array([f"{u1st=}" for u1st in u1st_list])
+    prices.plot()
     plt.axhline(min_redemption, c="#76da91", ls="--", lw=0.5)
-    for u1st, y in zip(
-        [0.75, 0.85, 0.95, 1.05, 1.15, 1.25], [0.85, 0.95, 1.01, 1.055, 1.155, 1.255]
-    ):
-        plt.annotate(
-            f"u1st = {u1st}",
-            xy=(1.27, y),
-        )
     plt.xlabel("u0st")
     plt.ylabel("Price")
+    plt.legend()
     plt.show()
 
 
@@ -205,8 +198,6 @@ def bonus_enhanced_note_delta(min_redemption=0.8447):
     ax2.plot_surface(  # type:ignore
         X, Y, prices, rstride=1, cstride=1, cmap=cm.get_cmap("CMRmap")
     )
-    ax2.set_xlabel("u0_S")
-    ax2.set_ylabel("u1_S")
     ax2.set_zlabel("Delta")  # type:ignore
 
     plt.show()
@@ -216,7 +207,7 @@ def bonus_enhanced_note_delta_2ds0(min_redemption=0.8447):
 
     op = bonus_enhanced_note(min_redemption=min_redemption)
     relative_St_arr = np.linspace(0.7, 1.3, 150)
-
+    u1st_list = [0.75, 0.85, 0.95, 1.05, 1.15, 1.25]
     prices = pd.DataFrame(
         [
             pd.Series(
@@ -234,25 +225,21 @@ def bonus_enhanced_note_delta_2ds0(min_redemption=0.8447):
             for u1st in [0.75, 0.85, 0.95, 1.05, 1.15, 1.25]
         ]
     ).T
-    plt.plot(prices)
+    prices.columns = np.array([f"{u1st=}" for u1st in u1st_list])
+    prices = prices.rolling(window=7, center=True).mean().dropna()
+    prices.plot()
     plt.axhline(min_redemption, c="#76da91", ls="--", lw=0.5)
-    for u1st, y in zip(
-        [0.75, 0.85, 0.95, 1.05, 1.15, 1.25], [0.85, 0.95, 1.01, 1.055, 1.155, 1.255]
-    ):
-        plt.annotate(
-            f"u1st = {u1st}",
-            xy=(1.27, y),
-        )
+
     plt.xlabel("u0st")
-    plt.ylabel("Price")
+    plt.ylabel("Delta")
     plt.show()
 
 
-def bonus_enhanced_note_price_2d_single(min_redemption=0.8447):
+def bonus_enhanced_note_price_2d_single(min_redemption=0.8447, bonus_coupon=0.16):
 
-    op = bonus_enhanced_note(min_redemption=min_redemption)
+    op = bonus_enhanced_note(min_redemption=min_redemption, bonus_coupon=bonus_coupon)
     relative_St_arr = np.linspace(0.7, 1.3, 1000)
-    tlist = [365]
+    tlist = [0, 183, 360, 365]
     prices = pd.DataFrame(
         [
             pd.Series(
@@ -272,23 +259,34 @@ def bonus_enhanced_note_price_2d_single(min_redemption=0.8447):
     prices.columns = np.array([f"{t=}" for t in tlist])
     prices.plot()
 
+    plt.axhline(min_redemption, c="#9987ce", ls="--", lw=1)
+    plt.axhline(1 + bonus_coupon, c="#eddd86", ls="--", lw=1)
+    plt.axhline(1, c="#efa666", ls="--", lw=1)
+
     plt.xlabel("S")
     plt.ylabel("Price")
     plt.legend()
     plt.show()
 
 
-def bonus_enhanced_note_delta_2d_single(min_redemption=0.8447):
+def bonus_enhanced_note_delta_2d_single(
+    put_strike=0.9, min_redemption=0.8447, bonus_coupon=0.16
+):
 
-    op = bonus_enhanced_note(min_redemption=min_redemption)
-    relative_St_arr = np.linspace(0.7, 1.3, 150)
+    op = bonus_enhanced_note(
+        put_strike=put_strike, min_redemption=min_redemption, bonus_coupon=bonus_coupon
+    )
+    relative_St_arr = np.linspace(0.7, 1.3, 300)
+    # tlist = list(range(361, 366, 2))
+    tlist = [0, 183, 300, 365]
+    # 183, 300, 365
 
     prices = pd.DataFrame(
         [
             pd.Series(
                 [
                     op.price_and_delta_at(
-                        0,
+                        t,
                         np.array([u0st]),
                         underlying=0,
                         price_only=False,
@@ -297,13 +295,17 @@ def bonus_enhanced_note_delta_2d_single(min_redemption=0.8447):
                 ],
                 index=relative_St_arr,
             )
+            for t in tlist
         ]
     ).T
-    plt.plot(prices)
-    plt.axhline(min_redemption, c="#76da91", ls="--", lw=0.5)
-
-    plt.xlabel("u0st")
-    plt.ylabel("Price")
+    prices.columns = np.array([f"{t=}" for t in tlist])
+    prices = prices.rolling(window=7, center=True).mean().dropna()
+    prices.plot()
+    plt.axhline(1, c="#76da91", ls="--", lw=1)
+    plt.axhline(1 / put_strike, c="#efa666", ls="--", lw=1)
+    plt.ylim(bottom=-0.25, top=1.3)
+    plt.xlabel("S")
+    plt.ylabel("Delta")
     plt.show()
 
 
@@ -312,6 +314,6 @@ if __name__ == "__main__":
     # bonus_enhanced_note_price_2dst()
 
     # bonus_enhanced_note_delta()
-    # bonus_enhanced_note_delta_2ds0()
-    bonus_enhanced_note_price_2d_single()
+    bonus_enhanced_note_delta_2ds0()
+    # bonus_enhanced_note_price_2d_single()
     # bonus_enhanced_note_delta_2d_single()
