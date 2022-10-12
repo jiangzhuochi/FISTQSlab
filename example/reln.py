@@ -187,8 +187,8 @@ def delta_hedging(
         else:
             cbs[-1] = cbs[-1] - (issue_price - 1) - S[-1] + deltas[-1] * S[-1]
         return_.append(cbs[-1])
-        # plt.plot(np.array(cbs))
-        # plt.show()
+        plt.plot(np.array(cbs))
+    plt.show()
 
     return_arr = np.array(return_)
     pd.DataFrame(return_arr).to_csv(EXAMPLT_DATA / "reln.csv")
@@ -203,4 +203,4 @@ if __name__ == "__main__":
     # reln_find_strike()
     # reln_price()
     # reln_delta()
-    delta_hedging(1000)
+    delta_hedging(10)
