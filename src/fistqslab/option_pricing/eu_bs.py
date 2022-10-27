@@ -230,3 +230,18 @@ def plot_sensitivity(
     ).T.plot(ax=ax)
     ax.set_xlabel("S")
     ax.set_ylabel(func_other_params.get("greeks", "price"))
+
+
+def plot_sigma_sensitivity(
+    func, Sarr, sigma_range, func_other_params={}, draw_other_lines="pass"
+):
+    fig, ax = plt.subplots(1, 1, figsize=(12, 7.5))
+    exec(draw_other_lines)
+    pd.DataFrame(
+        [func(Sarr, sigma=sigma, **func_other_params) for sigma in sigma_range],
+        index=[f"sigma={round(sigma,2)}" for sigma in sigma_range],
+        columns=Sarr,
+    ).T.plot(ax=ax)
+    ax.axvline(1, 0, 1, ls="--", lw=1)
+    ax.set_xlabel("S")
+    ax.set_ylabel(func_other_params.get("greeks", "price"))

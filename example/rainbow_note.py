@@ -188,4 +188,5 @@ def delta_hedging(
 if __name__ == "__main__":
     # rainbow_note_price_2d_single()
     # rainbow_note_delta_2d_single()
-    delta_hedging(100)
+    # delta_hedging(100)
+    print(rainbow_note().price())

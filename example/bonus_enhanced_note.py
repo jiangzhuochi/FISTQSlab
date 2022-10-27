@@ -45,7 +45,7 @@ total_time_start = time.perf_counter()
 codes, real_S0, relative_S = data_path_to_codes_real_S0_relative_S(
     {
         "180101.csv": DATA_DIR / "路径模拟数据/180101.csv",
-        "180201.csv": DATA_DIR / "路径模拟数据/180201.csv",
+        # "180201.csv": DATA_DIR / "路径模拟数据/180201.csv",
     }
 )
 
@@ -314,6 +314,14 @@ if __name__ == "__main__":
     # bonus_enhanced_note_price_2dst()
 
     # bonus_enhanced_note_delta()
-    bonus_enhanced_note_delta_2ds0()
+    # bonus_enhanced_note_delta_2ds0()
     # bonus_enhanced_note_price_2d_single()
     # bonus_enhanced_note_delta_2d_single()
+    op = bonus_enhanced_note()
+    d = op.price_and_delta_at(
+        0,
+        np.array([1]),
+        underlying=0,
+        price_only=False,
+    )
+    print(d)

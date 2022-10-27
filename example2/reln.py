@@ -2,6 +2,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from cycler import cycler
 from scipy.stats import norm
 
@@ -9,6 +10,26 @@ from fistqslab.option_pricing import eu_bs
 
 ROOT = Path(".")
 EXAMPLT2_IMG = ROOT / "example2" / "img"
+
+
+plt.rc(
+    "axes",
+    prop_cycle=cycler(
+        "color",
+        [
+            "#63b2ee",
+            "#76da91",
+            "#f8cb7f",
+            "#f89588",
+            "#7cd6cf",
+            "#9192ab",
+            "#7898e1",
+            "#efa666",
+            "#eddd86",
+            "#9987ce",
+        ],
+    ),
+)
 
 
 def reln_pricing(
@@ -45,32 +66,31 @@ params = dict(
     strike=1.0350,
     issue_price=1.0172,
 )
-eu_bs.plot_sensitivity(
-    reln_pricing,
-    Sarr,
-    t_range,
-    params,
-    draw_other_lines="\n".join(
-        [
-            "r = func_other_params['strike'] + func_other_params['issue_price'] - 1",
-            "ax.axhline(r, 0, 0.6, ls='--', lw=1)",
-            """ax.annotate(f'strike + issue_price - 1 = {r}', xy=(0.78, r+0.005), rotation=0)""",
-        ]
-    ),
-)
-plt.savefig(EXAMPLT2_IMG / "reln_price.png", bbox_inches="tight", dpi=200)
 
-eu_bs.plot_sensitivity(
+
+def plot_S_t_price_delta():
+
+    eu_bs.plot_sensitivity(
+        reln_pricing,
+        Sarr,
+        t_range,
+        params,
+        draw_other_lines="\n".join(
+            [
+                "r = func_other_params['strike'] + func_other_params['issue_price'] - 1",
+                "ax.axhline(r, 0, 0.6, ls='--', lw=1)",
+                """ax.annotate(f'strike + issue_price - 1 = {r}', xy=(0.78, r+0.005), rotation=0)""",
+            ]
+        ),
+    )
+    plt.savefig(EXAMPLT2_IMG / "reln_price.png", bbox_inches="tight", dpi=200)
+
+
+
+eu_bs.plot_sigma_sensitivity(
     reln_pricing,
     Sarr,
-    t_range,
-    {**params, "greeks": "delta"},
-    draw_other_lines="\n".join(
-        [
-            "strike = func_other_params['strike']",
-            "ax.axvline(strike, 0, 0.3, ls='--', lw=1)",
-            """ax.annotate(f'strike = {strike}', xy=(strike-0.02, 0), rotation=270)""",
-        ]
-    ),
+    np.arange(0.15, 0.3, 0.05),
+    params,
 )
-plt.savefig(EXAMPLT2_IMG / "reln_delta.png", bbox_inches="tight", dpi=200)
+plt.show()
