@@ -13,13 +13,14 @@ class EuropeanOption:
     S: np.ndarray  # 标的现价
     L: float  # 执行价
     T_years: float  # 有效期(按年计)
+    b: float  # 持有成本率,  无股息时b=r, 连续股利时b=r-q
     r: float  # 连续复利无风险利率, 若年复利无风险利率为r0, 则r = ln(1+r0)
     sigma: float  # 年化标准差
 
     def __post_init__(self):
 
         self.d1 = (
-            (np.log(self.S / self.L) + (self.r + 0.5 * self.sigma**2) * self.T_years)
+            (np.log(self.S / self.L) + (self.b + 0.5 * self.sigma**2) * self.T_years)
             / (self.sigma * np.sqrt(self.T_years))
             if self.T_years != 0
             # 当t趋向于到期时, 实值期权d1趋向于负无穷, 平值期权d1趋向于0, 虚值d1趋向于正无穷
@@ -32,11 +33,14 @@ class EuropeanOption:
         self.d2 = self.d1 - self.sigma * np.sqrt(self.T_years)
         self.N = norm.cdf
         self.n = norm.pdf
+        self.discount = np.exp((self.b - self.r) * self.T_years)
 
     @property
     def gamma(self):
         return (
-            self.n(self.d1) / (self.S * self.sigma * np.sqrt(self.T_years))
+            self.discount
+            * self.n(self.d1)
+            / (self.S * self.sigma * np.sqrt(self.T_years))
             if self.T_years != 0
             # 当t趋向于到期时, 平值期权gamma不存在
             else np.piecewise(
@@ -48,7 +52,7 @@ class EuropeanOption:
 
     @property
     def vega(self):
-        return self.S * np.sqrt(self.T_years) * self.n(self.d1)
+        return self.discount * self.S * np.sqrt(self.T_years) * self.n(self.d1)
 
 
 @dataclass
@@ -57,14 +61,14 @@ class EuropeanCallOption(EuropeanOption):
 
     @property
     def price(self):
-        return self.S * self.N(self.d1) - self.L * np.exp(
+        return self.S * self.discount * self.N(self.d1) - self.L * np.exp(
             -self.r * self.T_years
         ) * self.N(self.d2)
 
     @property
     def delta(self):
         return (
-            self.N(self.d1)
+            self.discount * self.N(self.d1)
             if self.T_years != 0
             # 当t趋向于到期时, 平值期权delta不存在
             else np.piecewise(
@@ -77,7 +81,12 @@ class EuropeanCallOption(EuropeanOption):
     @property
     def theta(self):
         return (
-            -self.S * self.sigma * self.n(self.d1) / (2 * np.sqrt(self.T_years))
+            -self.discount
+            * self.S
+            * self.sigma
+            * self.n(self.d1)
+            / (2 * np.sqrt(self.T_years))
+            - (self.b - self.r) * self.S * self.discount * self.N(self.d1)
             - self.L * self.r * np.exp(-self.r * self.T_years) * self.N(self.d2)
             if self.T_years != 0
             # 当t趋向于到期时, 实值期权theta趋向于self.L*self.r, 平值期权theta趋向于负无穷, 虚值theta趋向于0
@@ -85,6 +94,19 @@ class EuropeanCallOption(EuropeanOption):
                 self.S,
                 [self.S < self.L, self.S == self.L, self.S > self.L],
                 [0, -np.inf, -self.L * self.r],
+            )
+        )
+
+    @property
+    def rho(self):
+        return (
+            self.T_years * self.L * np.exp(-self.r * self.T_years) * self.N(self.d2)
+            if self.T_years != 0
+            # TODO FIXME
+            else np.piecewise(
+                self.S,
+                [self.S < self.L, self.S == self.L, self.S > self.L],
+                [0, -np.nan, 1],
             )
         )
 
@@ -97,12 +119,12 @@ class EuropeanPutOption(EuropeanOption):
     def price(self):
         return self.L * np.exp(-self.r * self.T_years) * self.N(
             -self.d2
-        ) - self.S * self.N(-self.d1)
+        ) - self.S * self.discount * self.N(-self.d1)
 
     @property
     def delta(self):
         return (
-            self.N(self.d1) - 1
+            self.discount * (self.N(self.d1) - 1)
             if self.T_years != 0
             # 当t趋向于到期时, 平值期权delta不存在
             else np.piecewise(
@@ -115,8 +137,13 @@ class EuropeanPutOption(EuropeanOption):
     @property
     def theta(self):
         return (
-            self.L * self.r * np.exp(-self.r * self.T_years) * self.N(-self.d2)
-            - self.S * self.sigma * self.n(self.d1) / (2 * np.sqrt(self.T_years))
+            -self.discount
+            * self.S
+            * self.sigma
+            * self.n(self.d1)
+            / (2 * np.sqrt(self.T_years))
+            + (self.b - self.r) * self.S * self.discount * self.N(-self.d1)
+            + self.L * self.r * np.exp(-self.r * self.T_years) * self.N(-self.d2)
             if self.T_years != 0
             # 当t趋向于到期时, 实值期权theta趋向于self.L*self.r, 平值期权theta趋向于负无穷, 虚值theta趋向于0
             else np.piecewise(
@@ -126,6 +153,18 @@ class EuropeanPutOption(EuropeanOption):
             )
         )
 
+    @property
+    def rho(self):
+        return (
+            -self.T_years * self.L * np.exp(-self.r * self.T_years) * self.N(-self.d2)
+            if self.T_years != 0
+            # TODO FIXME
+            else np.piecewise(
+                self.S,
+                [self.S < self.L, self.S == self.L, self.S > self.L],
+                [0, -np.nan, 1],
+            )
+        )
 
 @dataclass
 class CashOrNothingOption(EuropeanOption):
@@ -167,7 +206,7 @@ class CashOrNothingOption(EuropeanOption):
             * np.exp(-self.r * self.T_years)
             * self.n(self.d2)
             * self.d1
-            / (self.S**2 * self.sigma**2 * np.sqrt(self.T_years))
+            / (self.S**2 * self.sigma**2 * self.T_years)
             if self.T_years != 0
             # 当t趋向于到期时, 平值期权gamma不存在
             else np.piecewise(
@@ -197,19 +236,40 @@ class CashOrNothingOption(EuropeanOption):
     def theta(self):
         # https://www.studocu.com/en-gb/document/university-of-sheffield/business-economics/fm2014-s-ch16-cash-or-nothing/1522887
         # https://quantpie.co.uk/bsm_bin_c_formula/bs_bin_c_summary.php
+        # 里面 rd 是无风险收益率 rf 是股息
+        # 期权定价公式指南里的 b 等于上文的 rd - rf, r 等于 rd
         return (
             self.K
             * np.exp(-self.r * self.T_years)
             * (
                 self.option_type
+                # * self.n(self.d2 * self.option_type) 是否有 * self.option_type？？？
                 * self.n(self.d2)
                 * (
                     self.d1 / (2 * self.T_years)
-                    - self.r / (self.sigma * np.sqrt(self.T_years))
+                    - self.b / (self.sigma * np.sqrt(self.T_years))
                 )
                 + self.r * self.N(self.option_type * self.d2)
             )
             if self.T_years != 0
+            else np.piecewise(
+                self.S,
+                [self.S == self.L, self.S != self.L],
+                [np.inf, 0],
+            )
+        )
+
+    @property
+    def rho(self):
+        return (
+            self.K
+            * np.exp(-self.r * self.T_years)
+            * (
+                self.option_type * np.sqrt(self.T_years) * self.n(self.d2) / self.sigma
+                - self.T_years * self.N(self.option_type * self.d2)
+            )
+            if self.T_years != 0
+            # TODO FIXME
             else np.piecewise(
                 self.S,
                 [self.S == self.L, self.S != self.L],

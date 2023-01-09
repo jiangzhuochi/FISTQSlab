@@ -18,6 +18,7 @@ numexpr = "^2.8.3"
 nptyping = "^2.3.1"
 more-itertools = "^8.14.0"
 notebook = "^6.4.12"
+openpyxl = "^3.0.10"
 
 
 [tool.poetry.group.dev.dependencies]

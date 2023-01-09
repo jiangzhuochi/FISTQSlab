@@ -12,6 +12,8 @@ from fistqslab.option_pricing.util import data_path_to_codes_real_S0_relative_S
 
 ROOT = Path(".")
 EXAMPLT2_IMG = ROOT / "example2" / "img"
+EXAMPLT2_RESULT = ROOT / "example2" / "result"
+
 
 plt.rc(
     "axes",
@@ -410,50 +412,72 @@ codes, real_S0, relative_S = data_path_to_codes_real_S0_relative_S(
 
 def ben_delta_hedging(T=365):
 
-    S = relative_S[0][:, [t * 250 // 365 for t in range(T + 1)]]
-    prices = np.empty(S.shape)
-    deltas = np.empty(S.shape)
-    for idx in range(S.shape[1]):
-        prices[:, idx] = ben_pricing(S[:, idx], t=idx, **params)
-        deltas[:, idx] = ben_pricing(S[:, idx], t=idx, greeks="delta", **params)
-    deltas = np.clip(deltas, -1.2, 1.2)
-    delta_chgs = np.diff(deltas, axis=1)
-    # 第1天往后, delta变大, 就买股票, 反之就卖
-    delta_rehedge_cfs = -delta_chgs * S[:, 1:]
-    # 第0天, 卖期权(卖方负delta), 拿现金, 买股票
-    cbs = np.empty(S.shape)
-    cbs[:, 0] = prices[:, 0] - deltas[:, 0] * S[:, 0]
-    for j in range(delta_rehedge_cfs.shape[1]):
-        new_cash = cbs[:, j] * (1 + 0.015 / 365)
-        cbs[:, j + 1] = new_cash + delta_rehedge_cfs[:, j]
+    plt.figure(figsize=(12, 7.5))
 
-    # 最后一天, 清仓已有股票
-    cbs[:, -1] = cbs[:, -1] + deltas[:, -1] * S[:, -1]
-    put_strike = 0.9
-    coupon_barrier = 1
-    min_redemption = 0.8447
-    bonus_coupon = 0.16
-
-    def calc_last_cb(cb, s):
-        if s >= coupon_barrier:
-            return cb - max(s, 1 + bonus_coupon)
-        elif put_strike <= s < coupon_barrier:
-            return cb - 1
-        else:
-            return cb - max(min_redemption, s / put_strike)
-
-    # 最后一天, 按情况返还现金
-    cbs[:, -1] = list(map(calc_last_cb, cbs[:, -1], S[:, -1]))
-    plt.hist(cbs[:, -1], bins=50)
-    plt.xlim(-0.1, 0.1)
+    S = relative_S[0][::1, [t * 250 // 365 for t in range(T + 1)]]
+    # 不对冲
+    ST = S[:, -1]
+    pnl = ben_pricing(ST, t=365, **params)
+    plt.hist(-(pnl - 1), bins=100)
+    plt.xlim(-0.8, 0.3)
     plt.savefig(
-        EXAMPLT2_IMG / "ben_sigma_umin_redemption0.8_price.png",
+        EXAMPLT2_IMG / "ben_no_hedging.png",
         bbox_inches="tight",
         dpi=200,
     )
-    print(pd.Series(cbs[:, -1]).describe())
+    pd.Series(-(pnl - 1)).describe().to_excel(EXAMPLT2_RESULT / "不对冲.xlsx")
 
-    
+    # prices = np.empty(S.shape)
+    # deltas = np.empty(S.shape)
+    # for idx in range(S.shape[1]):
+    #     prices[:, idx] = ben_pricing(S[:, idx], t=idx, **params)
+    #     deltas[:, idx] = ben_pricing(S[:, idx], t=idx, greeks="delta", **params)
+    # deltas = np.clip(deltas, -1.2, 1.2)
+    # delta_chgs = np.diff(deltas, axis=1)
+    # # 第1天往后, delta变大, 就买股票, 反之就卖
+    # delta_rehedge_cfs = -delta_chgs * S[:, 1:]
+    # # 第0天, 卖期权(卖方负delta), 拿现金, 买股票
+    # cbs = np.empty(S.shape)
+    # cbs[:, 0] = prices[:, 0] - deltas[:, 0] * S[:, 0]
+    # for j in range(delta_rehedge_cfs.shape[1]):
+    #     new_cash = cbs[:, j] * (1 + 0.015 / 365)
+    #     cbs[:, j + 1] = new_cash + delta_rehedge_cfs[:, j]
+
+    # # 最后一天, 清仓已有股票
+    # cbs[:, -1] = cbs[:, -1] + deltas[:, -1] * S[:, -1]
+    # put_strike = 0.9
+    # coupon_barrier = 1
+    # min_redemption = 0.8447
+    # bonus_coupon = 0.16
+
+    # def calc_last_cb(cb, s):
+    #     if s >= coupon_barrier:
+    #         return cb - max(s, 1 + bonus_coupon)
+    #     elif put_strike <= s < coupon_barrier:
+    #         return cb - 1
+    #     else:
+    #         return cb - max(min_redemption, s / put_strike)
+
+    # # 最后一天, 按情况返还现金
+    # cbs[:, -1] = list(map(calc_last_cb, cbs[:, -1], S[:, -1]))
+
+    # plt.hist(cbs[:, -1], bins=50)
+    # plt.xlim(-0.1, 0.1)
+    # plt.savefig(
+    #     EXAMPLT2_IMG / "ben_delta_hedging.png",
+    #     bbox_inches="tight",
+    #     dpi=200,
+    # )
+    # pd.Series(cbs[:, -1]).describe().to_excel(EXAMPLT2_RESULT/"不限制delta.xlsx")
+
+    # for cb in cbs:
+    #     plt.plot(cb, lw=1)
+    # plt.savefig(
+    #     EXAMPLT2_IMG / "ben_delta_hedging_10条路径.png",
+    #     bbox_inches="tight",
+    #     dpi=200,
+    # )
+
 
 # risk_analysis()
 # plot_S_sigma_price()
