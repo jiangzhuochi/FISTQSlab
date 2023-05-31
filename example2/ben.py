@@ -51,7 +51,7 @@ def ben_pricing(
     T_years = (T_days - t) / 365
 
     c3 = eu_bs.EuropeanCallOption(
-        S=S, L=1 + bonus_coupon, T_years=T_years, r=r, sigma=sigma
+        S=S, L=1 + bonus_coupon, T_years=T_years, r=r, sigma=sigma, b=0
     )
     con = eu_bs.CashOrNothingOption(
         S=S,
@@ -61,6 +61,7 @@ def ben_pricing(
         sigma=sigma,
         K=bonus_coupon,
         option_type=1,
+        b=0,
     )
 
     if min_redemption is None:
@@ -70,7 +71,7 @@ def ben_pricing(
                  + 欧式认购期权多头(行权价L=1+bonus_coupon)
                  + 现金或无认购期权多头(行权价L=coupon_barrier, 现金K=bonus_coupon)"""
         p = eu_bs.EuropeanPutOption(
-            S=S, L=put_strike, T_years=T_years, r=r, sigma=sigma
+            S=S, L=put_strike, T_years=T_years, r=r, sigma=sigma, b=0
         )
         if greeks == "delta":
             return -1 / put_strike * p.delta + c3.delta + con.delta
@@ -481,4 +482,5 @@ def ben_delta_hedging(T=365):
 
 # risk_analysis()
 # plot_S_sigma_price()
+ben_delta_hedging()
 ben_delta_hedging()

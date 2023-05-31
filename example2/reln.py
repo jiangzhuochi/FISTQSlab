@@ -47,7 +47,7 @@ def reln_pricing(
     以1买入1份RELN = 持有到期支付strike+issue_price-1的票据 + 1份欧式认沽期权空头"""
 
     T_years = (T_days - t) / 365
-    p = eu_bs.EuropeanPutOption(S=S, L=strike, T_years=T_years, r=r, sigma=sigma)
+    p = eu_bs.EuropeanPutOption(S=S, L=strike, T_years=T_years, r=r, sigma=sigma,b=0)
     if greeks == "delta":
         return -p.delta
     elif greeks == "gamma":

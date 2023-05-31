@@ -8,3 +8,5 @@ templates
 **/.DS_Store
 **/doc
 example2/result/**
+**/*.png
+**/*.ipynb

@@ -45,7 +45,7 @@ def eln_pricing(
     以issue_price买入1份ELN = 持有1份到期收到1的票据 + 1/strike份欧式认沽期权空头"""
 
     T_years = (T_days - t) / 365
-    p = eu_bs.EuropeanPutOption(S=S, L=strike, T_years=T_years, r=r, sigma=sigma)
+    p = eu_bs.EuropeanPutOption(S=S, L=strike, T_years=T_years, r=r, sigma=sigma,b=0)
     if greeks == "delta":
         return -(1 / strike) * p.delta
     elif greeks == "gamma":

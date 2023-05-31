@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import rich
 from scipy.stats import norm
 
 
@@ -102,7 +103,7 @@ class EuropeanCallOption(EuropeanOption):
         return (
             self.T_years * self.L * np.exp(-self.r * self.T_years) * self.N(self.d2)
             if self.T_years != 0
-            # TODO FIXME
+            # TODO FIXME 极限情况可能错误，建议不要填入T_years=0，而是很小但不等于0的数
             else np.piecewise(
                 self.S,
                 [self.S < self.L, self.S == self.L, self.S > self.L],
@@ -158,7 +159,7 @@ class EuropeanPutOption(EuropeanOption):
         return (
             -self.T_years * self.L * np.exp(-self.r * self.T_years) * self.N(-self.d2)
             if self.T_years != 0
-            # TODO FIXME
+            # TODO FIXME 极限情况可能错误，建议不要填入T_years=0，而是很小但不等于0的数
             else np.piecewise(
                 self.S,
                 [self.S < self.L, self.S == self.L, self.S > self.L],
@@ -237,7 +238,10 @@ class CashOrNothingOption(EuropeanOption):
         # https://www.studocu.com/en-gb/document/university-of-sheffield/business-economics/fm2014-s-ch16-cash-or-nothing/1522887
         # https://quantpie.co.uk/bsm_bin_c_formula/bs_bin_c_summary.php
         # 里面 rd 是无风险收益率 rf 是股息
-        # 期权定价公式指南里的 b 等于上文的 rd - rf, r 等于 rd
+        # 期权定价公式指南里的 b = rd - rf, r = rd
+        # rd = b + rf
+        # https://quantpie.co.uk/bsm_formula/bs_summary.php
+        # rf should be interpreted as the dividend yield rate and  rd as the interest/discount rate.
         return (
             self.K
             * np.exp(-self.r * self.T_years)
@@ -269,13 +273,24 @@ class CashOrNothingOption(EuropeanOption):
                 - self.T_years * self.N(self.option_type * self.d2)
             )
             if self.T_years != 0
-            # TODO FIXME
+            # TODO FIXME 极限情况可能错误，建议不要填入T_years=0，而是很小但不等于0的数
             else np.piecewise(
                 self.S,
                 [self.S == self.L, self.S != self.L],
                 [np.inf, 0],
             )
         )
+
+    def show(self):
+        res = {
+            "NPV": self.price,
+            "Delta": self.delta,
+            "Gamma": self.gamma,
+            "Vega": self.vega,
+            "Rho": self.rho,
+        }
+        for k, v in res.items():
+            rich.print(f"[blue]{k}[/blue] = {v}")
 
 
 def plot_sensitivity(

@@ -48,9 +48,9 @@ def rb_pricing(
     T_years = (T_days - t) / 365
 
     c = eu_bs.EuropeanCallOption(
-        S=S, L=lower_call_strike, T_years=T_years, r=r, sigma=sigma
+        S=S, L=lower_call_strike, T_years=T_years, r=r, sigma=sigma,b=0
     )
-    p = eu_bs.EuropeanPutOption(S=S, L=put_strike, T_years=T_years, r=r, sigma=sigma)
+    p = eu_bs.EuropeanPutOption(S=S, L=put_strike, T_years=T_years, r=r, sigma=sigma,b=0)
 
     """RB
     1名义本金RB = 1/put_strike份欧式认沽期权空头(行权价L=put_strike)
