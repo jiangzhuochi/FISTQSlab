@@ -42,14 +42,17 @@ def main() -> None:
     for name, p in [("保本(85%)", ben), ("无保本", ben_no_mr)]:
         r_an = analytic.price(p, market)
         r_mc = engine.price(p, model)
-        print(f"{name}: 闭式 = {r_an.price:.6f}  MC = {r_mc.price:.6f} ± {r_mc.stderr:.6f}")
+        print(
+            f"{name}: 闭式 = {r_an.price:.6f}  MC = {r_mc.price:.6f} ± {r_mc.stderr:.6f}"
+        )
 
     # 票息 vs 价格（解析）
     coupons = np.linspace(0.0, 0.12, 61)
-    prices = [
-        BonusEnhancedNote(bonus_coupon=c, **base).analytic_price(market)
-        for c in coupons
-    ]
+    prices: list[float] = []
+    for c in coupons:
+        p = BonusEnhancedNote(bonus_coupon=c, **base).analytic_price(market)
+        assert p is not None  # 单标的市场必有闭式解
+        prices.append(p)
     fig, ax = plt.subplots(figsize=(6, 4))
     ax.plot(coupons * 365 / 183 * 100, prices)
     ax.set_xlabel("票息（年化 %）")

@@ -47,8 +47,8 @@ def main() -> None:
         f"MC 价格     = {mc.price:.6f} ± {mc.stderr:.6f}  "
         f"95%CI=[{mc.ci_low:.6f}, {mc.ci_high:.6f}]"
     )
-    print(f"MC - 闭式   = {mc.price - analytic.price:+.6f}  "
-          f"({3 * mc.stderr:.4f} = 3σ)")
+    assert mc.stderr is not None
+    print(f"MC - 闭式   = {mc.price - analytic.price:+.6f}  ({3 * mc.stderr:.4f} = 3σ)")
 
 
 if __name__ == "__main__":

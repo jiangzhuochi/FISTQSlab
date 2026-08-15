@@ -21,14 +21,16 @@ from fistqslab import (
 def main() -> None:
     market = MarketState(spots=[100.0], risk_free_rate=0.02, volatilities=0.25)
     ac = AutoCallNote(
-        ki_barrier=0.7,          # 敲入价（到期失效）
-        autocall_barrier=1.0,    # 敲出价
+        ki_barrier=0.7,  # 敲入价（到期失效）
+        autocall_barrier=1.0,  # 敲出价
         observation_frequency_days=30,  # 每月观察
-        bonus_coupon=0.08,       # 整个期限总票息
+        bonus_coupon=0.08,  # 整个期限总票息
         maturity_year_fraction=1.0,
         min_redemption=0.85,
     )
-    obs_days = np.round(ac.observation_year_fractions * 365, 1)
+    obs = ac.observation_year_fractions
+    assert obs is not None  # AutoCallNote 恒有观察日
+    obs_days = np.round(obs * 365, 1)
     print(f"观察日（自然日）：{obs_days}")
 
     model = GBMModel(market)

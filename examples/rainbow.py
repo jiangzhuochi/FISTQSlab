@@ -23,11 +23,13 @@ def main() -> None:
         spots=[100.0, 95.0, 110.0],  # 三标的
         risk_free_rate=0.02,
         volatilities=[0.2, 0.25, 0.3],
-        correlation=np.array([
-            [1.0, 0.6, 0.4],
-            [0.6, 1.0, 0.5],
-            [0.4, 0.5, 1.0],
-        ]),
+        correlation=np.array(
+            [
+                [1.0, 0.6, 0.4],
+                [0.6, 1.0, 0.5],
+                [0.4, 0.5, 1.0],
+            ]
+        ),
     )
     base = dict(
         put_strike=0.9,
