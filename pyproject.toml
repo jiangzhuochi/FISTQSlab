@@ -1,35 +1,50 @@
 [tool.poetry]
 name = "fistqslab"
-version = "0.1.0"
-description = ""
+version = "0.2.0"
+description = "小型结构化衍生品定价库：Black-Scholes 闭式解 + 分块 Monte Carlo 引擎（ELN/RELN/BEN/AutoCall/Rainbow/Leverage Note）"
 authors = ["jiangzhuochi <1053067021@qq.com>"]
 readme = "README.md"
 packages = [{ include = "fistqslab", from = "src" }]
 
 [tool.poetry.dependencies]
-python = "==3.10.*"
+python = ">=3.10,<3.12"
 Flask = "^2.2.2"
 numpy = "^1.23.2"
 pandas = "^1.4.3"
 matplotlib = "^3.5.3"
 scipy = "^1.9.1"
-pydantic = "^1.10.1"
-numexpr = "^2.8.3"
-nptyping = "^2.3.1"
-more-itertools = "^8.14.0"
-notebook = "^6.4.12"
-openpyxl = "^3.0.10"
-rich = "^13.3.5"
 
 
 [tool.poetry.group.dev.dependencies]
 black = "^22.6.0"
 isort = "^5.10.1"
+pytest = "^7.4.0"
+pytest-cov = "^4.1.0"
+ruff = "^0.4.0"
 
 
 [tool.isort]
 profile = "black"
 multi_line_output = 3
+
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q"
+
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# 测试中立即调用的 lambda 与循环变量绑定属安全模式
+"tests/*" = ["B023", "E731"]
 
 
 [tool.poetry.scripts]
