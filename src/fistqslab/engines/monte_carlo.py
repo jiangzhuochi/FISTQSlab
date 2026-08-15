@@ -102,7 +102,7 @@ class MonteCarloEngine:
                 self.antithetic,
                 self.seed,
             ):
-                acc.update(product.payoff_terminal(rel, market.spots))
+                acc.update(product.payoff_terminal(rel, market.spot_vector))
             discount = np.exp(-market.risk_free_rate * product.maturity_year_fraction)
             price = discount * acc.mean
         else:
@@ -113,7 +113,7 @@ class MonteCarloEngine:
                 self.antithetic,
                 self.seed,
             ):
-                acc.update(product.payoff_paths(rel, market.spots, market))
+                acc.update(product.payoff_paths(rel, market.spot_vector, market))
             price = acc.mean
 
         return PricingResult(

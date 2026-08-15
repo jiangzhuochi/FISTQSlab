@@ -8,8 +8,8 @@ from __future__ import annotations
 import numpy as np
 
 from fistqslab import (
-    AnalyticEngine,
     ELN,
+    AnalyticEngine,
     GBMModel,
     MarketState,
     MonteCarloEngine,

@@ -51,21 +51,17 @@ class LeverageNote(Product):
     def payoff_terminal(self, rel: np.ndarray, spots: np.ndarray) -> np.ndarray:
         if rel.shape[0] != 1:
             raise ValueError("LeverageNote 仅支持单标的")
-        return (
-            1.0
-            + self.leverage_multiple
-            * (rel[0] - 1.0 + self.dividend_rate * self._maturity)
+        return 1.0 + self.leverage_multiple * (
+            rel[0] - 1.0 + self.dividend_rate * self._maturity
         )
 
     def analytic_price(self, market: MarketState) -> float | None:
         if market.n_assets != 1:
             return None
         r = market.risk_free_rate
-        q = market.dividend_yields[0]
+        q = market.dividend_vector[0]
         T = self._maturity
         expected_rel = np.exp((r - q) * T)
         return np.exp(-r * T) * (
-            1.0
-            + self.leverage_multiple
-            * (expected_rel - 1.0 + self.dividend_rate * T)
+            1.0 + self.leverage_multiple * (expected_rel - 1.0 + self.dividend_rate * T)
         )

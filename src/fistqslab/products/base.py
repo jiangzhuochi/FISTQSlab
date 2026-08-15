@@ -58,7 +58,9 @@ class Product(ABC):
             每路径收益，形状 ``(n_paths,)``。
         """
 
-    def payoff_paths(self, rel: np.ndarray, spots: np.ndarray, market: MarketState) -> np.ndarray:
+    def payoff_paths(
+        self, rel: np.ndarray, spots: np.ndarray, market: MarketState
+    ) -> np.ndarray:
         """计算每路径的收益现值（已按观察日折现，单位名义本金）。
 
         Args:

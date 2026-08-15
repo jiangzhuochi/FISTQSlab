@@ -37,29 +37,39 @@ def test_discount_is_continuous_compounding():
 # ---------------------------------------------------------------------------
 def test_market_state_broadcast_and_validation():
     """标量广播到多标的；非法输入抛错。"""
-    m = MarketState(spots=[100.0, 90.0], risk_free_rate=0.02,
-                    dividend_yields=0.01, volatilities=0.2)
+    m = MarketState(
+        spots=[100.0, 90.0], risk_free_rate=0.02, dividend_yields=0.01, volatilities=0.2
+    )
     assert m.n_assets == 2
-    assert np.allclose(m.dividend_yields, [0.01, 0.01])
-    assert np.allclose(m.volatilities, [0.2, 0.2])
-    assert np.allclose(m.correlation, np.eye(2))
+    assert np.allclose(m.dividend_vector, [0.01, 0.01])
+    assert np.allclose(m.volatility_vector, [0.2, 0.2])
+    assert np.allclose(m.correlation_matrix, np.eye(2))
 
     with pytest.raises(ValueError):
-        MarketState(spots=[100.0, 90.0, 80.0], risk_free_rate=0.02, volatilities=[0.2, 0.2])
+        MarketState(
+            spots=[100.0, 90.0, 80.0], risk_free_rate=0.02, volatilities=[0.2, 0.2]
+        )
     with pytest.raises(ValueError):
         MarketState(spots=[-1.0], risk_free_rate=0.02)
     with pytest.raises(ValueError):
-        MarketState(spots=[100.0], risk_free_rate=0.02,
-                    correlation=[[1.0, 0.5], [0.5, 1.0]])  # 2x2 与 1 标的冲突
+        MarketState(
+            spots=[100.0], risk_free_rate=0.02, correlation=[[1.0, 0.5], [0.5, 1.0]]
+        )  # 2x2 与 1 标的冲突
 
 
 def test_market_state_correlation_validation():
     with pytest.raises(ValueError):
-        MarketState(spots=[100.0, 90.0], risk_free_rate=0.02,
-                    correlation=[[1.0, 0.5], [0.5, 0.9]])  # 对角线非 1
+        MarketState(
+            spots=[100.0, 90.0],
+            risk_free_rate=0.02,
+            correlation=[[1.0, 0.5], [0.5, 0.9]],
+        )  # 对角线非 1
     with pytest.raises(ValueError):
-        MarketState(spots=[100.0, 90.0], risk_free_rate=0.02,
-                    correlation=[[1.0, 0.5], [0.6, 1.0]])  # 不对称
+        MarketState(
+            spots=[100.0, 90.0],
+            risk_free_rate=0.02,
+            correlation=[[1.0, 0.5], [0.6, 1.0]],
+        )  # 不对称
 
 
 # ---------------------------------------------------------------------------
@@ -68,8 +78,9 @@ def test_market_state_correlation_validation():
 def test_gbm_terminal_mean_matches_drift():
     """E[S_T] = S0·exp((r-q)T)：先验 drift 正确（大样本下接近）。"""
     r, q, sigma, T = 0.03, 0.01, 0.25, 1.0
-    m = MarketState(spots=[100.0], risk_free_rate=r,
-                    dividend_yields=q, volatilities=sigma)
+    m = MarketState(
+        spots=[100.0], risk_free_rate=r, dividend_yields=q, volatilities=sigma
+    )
     model = GBMModel(m)
     rels = []
     for rel, _ in model.terminal_batches(T, n_paths=200_000, batch_size=20_000, seed=1):
@@ -83,8 +94,9 @@ def test_gbm_terminal_mean_matches_drift():
 def test_gbm_terminal_log_return_normal():
     """ln(S_T/S0) 服从均值为 (r-q-σ²/2)T、方差 σ²T 的正态。"""
     r, q, sigma, T = 0.03, 0.01, 0.25, 1.0
-    m = MarketState(spots=[100.0], risk_free_rate=r,
-                    dividend_yields=q, volatilities=sigma)
+    m = MarketState(
+        spots=[100.0], risk_free_rate=r, dividend_yields=q, volatilities=sigma
+    )
     model = GBMModel(m)
     rels = []
     for rel, _ in model.terminal_batches(T, n_paths=100_000, batch_size=20_000, seed=2):
@@ -107,7 +119,9 @@ def test_gbm_correlation_structure():
     )
     model = GBMModel(m)
     rels = []
-    for rel, _ in model.terminal_batches(0.5, n_paths=100_000, batch_size=20_000, seed=3):
+    for rel, _ in model.terminal_batches(
+        0.5, n_paths=100_000, batch_size=20_000, seed=3
+    ):
         rels.append(rel)
     rel = np.concatenate(rels, axis=1)
     log_r = np.log(rel)
@@ -137,7 +151,9 @@ def test_gbm_antithetic_symmetry():
     """对偶变量：同 seed 下 antithetic 打开/关闭时样本对称。"""
     m = MarketState(spots=[100.0], risk_free_rate=0.02, volatilities=0.2)
     model = GBMModel(m)
-    rels_anti = [rel for rel, _ in model.terminal_batches(0.5, 5_000, 5_000, True, seed=9)]
+    rels_anti = [
+        rel for rel, _ in model.terminal_batches(0.5, 5_000, 5_000, True, seed=9)
+    ]
     rel_anti = np.concatenate(rels_anti, axis=1)
     # 偶数路径，前后半段互为相反数（对数空间）
     half = rel_anti.shape[1] // 2

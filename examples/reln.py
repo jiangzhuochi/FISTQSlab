@@ -8,11 +8,11 @@ from __future__ import annotations
 import numpy as np
 
 from fistqslab import (
+    RELN,
     AnalyticEngine,
     GBMModel,
     MarketState,
     MonteCarloEngine,
-    RELN,
     get_reln_issue_price,
 )
 

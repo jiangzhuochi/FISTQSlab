@@ -66,20 +66,15 @@ class RainbowNote(Product):
         lcs = self.lower_call_strike
         part = self.upside_participation
         c = self.guaranteed_flat_coupon
-        return (
-            1.0
-            + c
-            + part * np.maximum(w - lcs, 0.0)
-            - np.maximum(ps - w, 0.0) / ps
-        )
+        return 1.0 + c + part * np.maximum(w - lcs, 0.0) - np.maximum(ps - w, 0.0) / ps
 
     def analytic_price(self, market: MarketState) -> float | None:
         if market.n_assets > 1:
             return None
         T = self._maturity
         r = market.risk_free_rate
-        sigma = market.volatilities[0]
-        q = market.dividend_yields[0]
+        sigma = market.volatility_vector[0]
+        q = market.dividend_vector[0]
         c = bs_call(1.0, self.lower_call_strike, T, r, sigma, q)
         p = bs_put(1.0, self.put_strike, T, r, sigma, q)
         return (

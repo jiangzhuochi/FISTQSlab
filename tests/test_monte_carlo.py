@@ -31,6 +31,7 @@ def test_mc_matches_bs_within_3sigma(market, call_product):
     engine = MonteCarloEngine(n_paths=100_000, batch_size=10_000, seed=11)
     result = engine.price(call_product, model)
     bs = bs_call(100.0, 100.0, 1.0, 0.02, 0.25)
+    assert result.stderr is not None
     assert abs(result.price - bs) < 3 * result.stderr
 
 
@@ -47,8 +48,12 @@ def test_mc_put_call_consistency(market):
 def test_chunked_equals_single_batch(market, call_product):
     """同 seed 下分块与单批结果逐位一致（引擎只做累加）。"""
     model = GBMModel(market)
-    chunked = MonteCarloEngine(n_paths=30_000, batch_size=3_000, seed=21).price(call_product, model)
-    single = MonteCarloEngine(n_paths=30_000, batch_size=30_000, seed=21).price(call_product, model)
+    chunked = MonteCarloEngine(n_paths=30_000, batch_size=3_000, seed=21).price(
+        call_product, model
+    )
+    single = MonteCarloEngine(n_paths=30_000, batch_size=30_000, seed=21).price(
+        call_product, model
+    )
     assert chunked.price == single.price
     assert chunked.n_effective_paths == single.n_effective_paths
 
@@ -59,6 +64,7 @@ def test_seed_reproducibility(market, call_product):
     r1 = MonteCarloEngine(n_paths=20_000, seed=31).price(call_product, model)
     r2 = MonteCarloEngine(n_paths=20_000, seed=31).price(call_product, model)
     r3 = MonteCarloEngine(n_paths=20_000, seed=32).price(call_product, model)
+    assert r1.stderr is not None
     assert r1.price == r2.price
     assert abs(r1.price - r3.price) < 4 * r1.stderr
 
@@ -68,14 +74,19 @@ def test_more_paths_reduces_stderr(market, call_product):
     model = GBMModel(market)
     small = MonteCarloEngine(n_paths=5_000, seed=41).price(call_product, model)
     large = MonteCarloEngine(n_paths=80_000, seed=42).price(call_product, model)
+    assert small.stderr is not None and large.stderr is not None
     assert large.stderr < small.stderr / 2
 
 
 def test_antithetic_symmetry_engine(market, call_product):
     """对偶变量打开/关闭时价格一致（同 seed 下样本分布相同）。"""
     model = GBMModel(market)
-    on = MonteCarloEngine(n_paths=20_000, antithetic=True, seed=51).price(call_product, model)
-    off = MonteCarloEngine(n_paths=20_000, antithetic=False, seed=51).price(call_product, model)
+    on = MonteCarloEngine(n_paths=20_000, antithetic=True, seed=51).price(
+        call_product, model
+    )
+    off = MonteCarloEngine(n_paths=20_000, antithetic=False, seed=51).price(
+        call_product, model
+    )
     # 同 seed 下 on 的前半段 Z 与 off 相同；on 还包含 -Z 对称路径，均值估计略有差异
     assert on.price == pytest.approx(off.price, abs=0.06)
     assert on.n_effective_paths == 40_000
@@ -85,10 +96,11 @@ def test_antithetic_symmetry_engine(market, call_product):
 def test_million_paths_smoke(market, call_product):
     """100 万路径 + 小 batch：内存恒定且能完成（冒烟）。"""
     model = GBMModel(market)
-    result = MonteCarloEngine(
-        n_paths=1_000_000, batch_size=20_000, seed=61
-    ).price(call_product, model)
+    result = MonteCarloEngine(n_paths=1_000_000, batch_size=20_000, seed=61).price(
+        call_product, model
+    )
     bs = bs_call(100.0, 100.0, 1.0, 0.02, 0.25)
+    assert result.stderr is not None
     assert abs(result.price - bs) < 3 * result.stderr
     assert result.n_effective_paths == 2_000_000
 
@@ -101,6 +113,7 @@ def test_result_metadata(market, call_product):
     assert r.seed == 71
     assert r.n_paths == 10_000
     assert r.n_effective_paths == 20_000
+    assert r.ci_low is not None and r.ci_high is not None and r.stderr is not None
     assert r.ci_low < r.price < r.ci_high
     assert r.stderr > 0
 

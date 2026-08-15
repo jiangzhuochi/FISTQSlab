@@ -7,15 +7,19 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import cast
 
 import numpy as np
 
+ArrayLike = Sequence[float] | np.ndarray
 
-def _as_vector(value: np.ndarray | float, n: int, name: str) -> np.ndarray:
+
+def _as_vector(value: ArrayLike | float, n: int, name: str) -> np.ndarray:
     """把标量或一维数组广播为长度 n 的 float64 向量。"""
     if np.isscalar(value):
-        return np.full(n, float(value))
+        return np.full(n, float(np.asarray(value).item()))
     arr = np.asarray(value, dtype=float)
     if arr.ndim != 1 or arr.shape[0] != n:
         raise ValueError(f"{name} 必须为标量或长度 {n} 的一维数组，得到 {arr.shape}")
@@ -36,11 +40,11 @@ class MarketState:
             （单位阵）。
     """
 
-    spots: np.ndarray
+    spots: ArrayLike
     risk_free_rate: float
-    dividend_yields: np.ndarray | float = 0.0
-    volatilities: np.ndarray | float = 0.2
-    correlation: np.ndarray | None = None
+    dividend_yields: ArrayLike | float = 0.0
+    volatilities: ArrayLike | float = 0.2
+    correlation: Sequence[Sequence[float]] | np.ndarray | None = None
 
     def __post_init__(self) -> None:
         spots = np.asarray(self.spots, dtype=float)
@@ -52,12 +56,14 @@ class MarketState:
 
         n = spots.size
         object.__setattr__(
-            self, "dividend_yields", _as_vector(self.dividend_yields, n, "dividend_yields")
+            self,
+            "dividend_yields",
+            _as_vector(self.dividend_yields, n, "dividend_yields"),
         )
         object.__setattr__(
             self, "volatilities", _as_vector(self.volatilities, n, "volatilities")
         )
-        if np.any(self.volatilities < 0):
+        if np.any(self.volatility_vector < 0):
             raise ValueError("volatilities 必须非负")
 
         if self.correlation is None:
@@ -65,9 +71,7 @@ class MarketState:
         else:
             corr = np.asarray(self.correlation, dtype=float)
             if corr.shape != (n, n):
-                raise ValueError(
-                    f"correlation 形状必须为 {(n, n)}，得到 {corr.shape}"
-                )
+                raise ValueError(f"correlation 形状必须为 {(n, n)}，得到 {corr.shape}")
             if not np.allclose(corr, corr.T) or not np.allclose(np.diag(corr), 1.0):
                 raise ValueError("correlation 必须是对称矩阵且对角线为 1")
         object.__setattr__(self, "correlation", corr)
@@ -75,4 +79,24 @@ class MarketState:
     @property
     def n_assets(self) -> int:
         """标的数量。"""
-        return self.spots.size
+        return np.asarray(self.spots).size
+
+    @property
+    def spot_vector(self) -> np.ndarray:
+        """已转换为 ``(n_assets,)`` float64 的各标的价格。"""
+        return cast(np.ndarray, self.spots)
+
+    @property
+    def dividend_vector(self) -> np.ndarray:
+        """已广播为 ``(n_assets,)`` 的连续股息率数组。"""
+        return cast(np.ndarray, self.dividend_yields)
+
+    @property
+    def volatility_vector(self) -> np.ndarray:
+        """已广播为 ``(n_assets,)`` 的年化波动率数组。"""
+        return cast(np.ndarray, self.volatilities)
+
+    @property
+    def correlation_matrix(self) -> np.ndarray:
+        """相关矩阵（单位阵或用户给定）。"""
+        return cast(np.ndarray, self.correlation)

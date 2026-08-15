@@ -30,17 +30,17 @@ def euro_option_bs_route():
         q = float(form.get("q", 0.0))
     except (KeyError, ValueError):
         return (
-            jsonify(
-                {"error": "参数缺失或类型错误，需要 S, L, T(自然日), r, sigma"}
-            ),
+            jsonify({"error": "参数缺失或类型错误，需要 S, L, T(自然日), r, sigma"}),
             400,
         )
 
     T = year_fraction(T_days)  # 显式 自然日 → 年
     if option not in ("call", "put"):
         return jsonify({"error": "option 仅支持 call/put"}), 400
-    price = bs_call(S, L, T, r, sigma, q) if option == "call" else bs_put(
-        S, L, T, r, sigma, q
+    price = (
+        bs_call(S, L, T, r, sigma, q)
+        if option == "call"
+        else bs_put(S, L, T, r, sigma, q)
     )
     greeks = bs_greeks(option, S, L, T, r, sigma, q)
     return jsonify(
@@ -56,4 +56,3 @@ def euro_option_bs_route():
 @app.route("/")
 def index():
     return "FISTQSlab API：POST /euro_option_bs（S, L, T 自然日, r, sigma, option, q）"
-

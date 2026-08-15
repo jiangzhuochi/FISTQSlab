@@ -66,9 +66,7 @@ class BonusEnhancedNote(Product):
         self.put_strike = float(put_strike)
         self.coupon_barrier = float(coupon_barrier)
         self.bonus_coupon = float(bonus_coupon)
-        self.min_redemption = (
-            None if min_redemption is None else float(min_redemption)
-        )
+        self.min_redemption = None if min_redemption is None else float(min_redemption)
         self._maturity = float(maturity_year_fraction)
 
     @property
@@ -84,9 +82,7 @@ class BonusEnhancedNote(Product):
             base = 1.0 - np.maximum(ps - w, 0.0) / ps
         else:
             mr = self.min_redemption
-            bull_spread = (
-                np.maximum(w - ps * mr, 0.0) - np.maximum(w - ps, 0.0)
-            ) / ps
+            bull_spread = (np.maximum(w - ps * mr, 0.0) - np.maximum(w - ps, 0.0)) / ps
             base = mr + bull_spread
         bonus = np.maximum(w - (1.0 + c), 0.0)
         coupon = np.where(w >= cb, c, 0.0)
@@ -97,16 +93,14 @@ class BonusEnhancedNote(Product):
             return None
         T = self._maturity
         r = market.risk_free_rate
-        sigma = market.volatilities[0]
-        q = market.dividend_yields[0]
+        sigma = market.volatility_vector[0]
+        q = market.dividend_vector[0]
         c = self.bonus_coupon
 
         # 认购多头（行权价 1 + c）
         c3 = bs_call(1.0, 1.0 + c, T, r, sigma, q)
         # 现金或无认购（行权价 coupon_barrier，现金 c）
-        con = bs_digital_call(
-            1.0, self.coupon_barrier, T, r, sigma, q, cash=c
-        )
+        con = bs_digital_call(1.0, self.coupon_barrier, T, r, sigma, q, cash=c)
         if self.min_redemption is None:
             p = bs_put(1.0, self.put_strike, T, r, sigma, q)
             return np.exp(-r * T) - p / self.put_strike + c3 + con
@@ -186,7 +180,9 @@ class AutoCallNote(Product):
             1.0 + self.bonus_coupon,
         )
 
-    def payoff_paths(self, rel: np.ndarray, spots: np.ndarray, market: MarketState) -> np.ndarray:
+    def payoff_paths(
+        self, rel: np.ndarray, spots: np.ndarray, market: MarketState
+    ) -> np.ndarray:
         """AutoCall 收益现值（已按观察日折现）。
 
         rel: (n_assets, n_obs, n_paths)。更早的观察日优先：一旦某观察日

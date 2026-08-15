@@ -33,7 +33,7 @@ def _prepare(
     K: float,
     T: float,
     r: float,
-    sigma: float,
+    sigma: np.ndarray | float,
     q: float,
 ) -> tuple[Any, Any, Any, Any]:
     """计算 d1/d2 与两个折现因子。"""
@@ -54,7 +54,7 @@ def bs_call(
     K: float,
     T: float,
     r: float,
-    sigma: float,
+    sigma: np.ndarray | float,
     q: float = 0.0,
 ) -> np.ndarray | float:
     """欧式认购期权价格。"""
@@ -67,7 +67,7 @@ def bs_put(
     K: float,
     T: float,
     r: float,
-    sigma: float,
+    sigma: np.ndarray | float,
     q: float = 0.0,
 ) -> np.ndarray | float:
     """欧式认沽期权价格。"""
@@ -80,7 +80,7 @@ def bs_digital_call(
     K: float,
     T: float,
     r: float,
-    sigma: float,
+    sigma: np.ndarray | float,
     q: float = 0.0,
     cash: float = 1.0,
 ) -> np.ndarray | float:
@@ -94,7 +94,7 @@ def bs_digital_put(
     K: float,
     T: float,
     r: float,
-    sigma: float,
+    sigma: np.ndarray | float,
     q: float = 0.0,
     cash: float = 1.0,
 ) -> np.ndarray | float:
@@ -109,7 +109,7 @@ def bs_greeks(
     K: float,
     T: float,
     r: float,
-    sigma: float,
+    sigma: np.ndarray | float,
     q: float = 0.0,
 ) -> dict[str, np.ndarray | float]:
     """欧式期权的价格与希腊字母。
@@ -186,7 +186,7 @@ def bs_call_from_greeks(
     K: float,
     T: float,
     r: float,
-    sigma: float,
+    sigma: np.ndarray | float,
     q: float = 0.0,
 ) -> dict[str, np.ndarray | float]:
     """便捷函数：认购期权的价格与希腊字母。"""

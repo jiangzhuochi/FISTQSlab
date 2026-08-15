@@ -32,9 +32,11 @@ class GreeksCalculator:
         self.engine = engine
         self.epsilon = float(epsilon)
 
-    def _price_with_bump(self, product: Product, model: GBMModel, i: int, eps: float) -> float:
+    def _price_with_bump(
+        self, product: Product, model: GBMModel, i: int, eps: float
+    ) -> float:
         market = model.market
-        bumped_spots = market.spots.copy()
+        bumped_spots = market.spot_vector.copy()
         bumped_spots[i] *= 1.0 + eps
         bumped = replace(market, spots=bumped_spots)
         return float(self.engine.price(product, GBMModel(bumped)).price)
@@ -62,7 +64,9 @@ class GreeksCalculator:
             out[i] = (pu - 2 * base + pd) / (eps**2 * model.market.spots[i] ** 2)
         return out
 
-    def delta_gamma(self, product: Product, model: GBMModel) -> tuple[np.ndarray, np.ndarray]:
+    def delta_gamma(
+        self, product: Product, model: GBMModel
+    ) -> tuple[np.ndarray, np.ndarray]:
         """同时计算 delta 与 gamma（共享基础价格，减少一次定价）。"""
         n = model.n_assets
         eps = self.epsilon

@@ -13,12 +13,22 @@ from fistqslab.models.black_scholes import (
 )
 from fistqslab.products.base import Product
 
-__all__ = ["EuropeanCallOption", "EuropeanPutOption", "DigitalCallOption", "DigitalPutOption"]
+__all__ = [
+    "EuropeanCallOption",
+    "EuropeanPutOption",
+    "DigitalCallOption",
+    "DigitalPutOption",
+]
 
 
 def _check_single_asset(n_assets: int) -> None:
     if n_assets != 1:
         raise ValueError(f"香草期权仅支持单标的，当前 {n_assets} 个标的")
+
+
+def _as_float(x: np.ndarray | float) -> float:
+    """把 0 维数组或标量收窄为 float。"""
+    return float(np.asarray(x).item())
 
 
 class EuropeanCallOption(Product):
@@ -39,13 +49,15 @@ class EuropeanCallOption(Product):
 
     def analytic_price(self, market: MarketState) -> float | None:
         _check_single_asset(market.n_assets)
-        return bs_call(
-            market.spots[0],
-            self.strike,
-            self._maturity,
-            market.risk_free_rate,
-            market.volatilities[0],
-            market.dividend_yields[0],
+        return _as_float(
+            bs_call(
+                market.spots[0],
+                self.strike,
+                self._maturity,
+                market.risk_free_rate,
+                market.volatility_vector[0],
+                market.dividend_vector[0],
+            )
         )
 
 
@@ -67,13 +79,15 @@ class EuropeanPutOption(Product):
 
     def analytic_price(self, market: MarketState) -> float | None:
         _check_single_asset(market.n_assets)
-        return bs_put(
-            market.spots[0],
-            self.strike,
-            self._maturity,
-            market.risk_free_rate,
-            market.volatilities[0],
-            market.dividend_yields[0],
+        return _as_float(
+            bs_put(
+                market.spots[0],
+                self.strike,
+                self._maturity,
+                market.risk_free_rate,
+                market.volatility_vector[0],
+                market.dividend_vector[0],
+            )
         )
 
 
@@ -101,14 +115,16 @@ class DigitalCallOption(Product):
 
     def analytic_price(self, market: MarketState) -> float | None:
         _check_single_asset(market.n_assets)
-        return bs_digital_call(
-            market.spots[0],
-            self.strike,
-            self._maturity,
-            market.risk_free_rate,
-            market.volatilities[0],
-            market.dividend_yields[0],
-            cash=self.cash,
+        return _as_float(
+            bs_digital_call(
+                market.spots[0],
+                self.strike,
+                self._maturity,
+                market.risk_free_rate,
+                market.volatility_vector[0],
+                market.dividend_vector[0],
+                cash=self.cash,
+            )
         )
 
 
@@ -136,12 +152,14 @@ class DigitalPutOption(Product):
 
     def analytic_price(self, market: MarketState) -> float | None:
         _check_single_asset(market.n_assets)
-        return bs_digital_put(
-            market.spots[0],
-            self.strike,
-            self._maturity,
-            market.risk_free_rate,
-            market.volatilities[0],
-            market.dividend_yields[0],
-            cash=self.cash,
+        return _as_float(
+            bs_digital_put(
+                market.spots[0],
+                self.strike,
+                self._maturity,
+                market.risk_free_rate,
+                market.volatility_vector[0],
+                market.dividend_vector[0],
+                cash=self.cash,
+            )
         )

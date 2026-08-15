@@ -47,6 +47,13 @@ ignore = ["E501"]
 "tests/*" = ["B023", "E731"]
 
 
+[tool.pyright]
+pythonVersion = "3.10"
+typeCheckingMode = "basic"
+include = ["src", "tests"]
+# 依赖类型由所选 Python 环境解析（--pythonpath 指定解释器）
+
+
 [tool.poetry.scripts]
 lab = "fistqslab.__main__:main"
 

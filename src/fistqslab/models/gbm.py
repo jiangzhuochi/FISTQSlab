@@ -40,9 +40,13 @@ class GBMModel:
     def __init__(self, market: MarketState):
         self.market = market
         # 漂移向量：r - q - σ²/2（逐资产）
-        self._drift = market.risk_free_rate - market.dividend_yields - 0.5 * market.volatilities**2
-        self._sigma = market.volatilities
-        self._chol = np.linalg.cholesky(market.correlation)
+        self._drift = (
+            market.risk_free_rate
+            - market.dividend_vector
+            - 0.5 * market.volatility_vector**2
+        )
+        self._sigma = market.volatility_vector
+        self._chol = np.linalg.cholesky(market.correlation_matrix)
 
     @property
     def n_assets(self) -> int:

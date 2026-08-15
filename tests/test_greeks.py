@@ -64,8 +64,9 @@ def test_crn_reproducibility():
 
 def test_leverage_note_delta_is_zero():
     """杠杆票据 payoff 只依赖相对收益，delta 对绝对 spot ≈ 0。"""
-    lev = LeverageNote(leverage_multiple=2.0, maturity_year_fraction=T,
-                       dividend_rate=0.04)
+    lev = LeverageNote(
+        leverage_multiple=2.0, maturity_year_fraction=T, dividend_rate=0.04
+    )
     model = GBMModel(MARKET)
     d = _calculator().delta(lev, model)
     assert abs(d[0]) < 0.005
@@ -75,9 +76,12 @@ def test_multi_asset_delta_shape():
     """多标的产品的 delta 为逐标的向量。"""
     from fistqslab import ELN
 
-    m2 = MarketState(spots=[100.0, 90.0], risk_free_rate=0.02,
-                     volatilities=[0.25, 0.3],
-                     correlation=[[1.0, 0.5], [0.5, 1.0]])
+    m2 = MarketState(
+        spots=[100.0, 90.0],
+        risk_free_rate=0.02,
+        volatilities=[0.25, 0.3],
+        correlation=[[1.0, 0.5], [0.5, 1.0]],
+    )
     eln = ELN(strike=0.95, maturity_year_fraction=T)
     model = GBMModel(m2)
     d, gam = _calculator(n_paths=60_000).delta_gamma(eln, model)

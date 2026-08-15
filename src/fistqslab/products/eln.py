@@ -75,7 +75,12 @@ class ELN(Product):
         T = self._maturity
         r = market.risk_free_rate
         p = bs_put(
-            1.0, self.strike, T, r, market.volatilities[0], market.dividend_yields[0]
+            1.0,
+            self.strike,
+            T,
+            r,
+            market.volatility_vector[0],
+            market.dividend_vector[0],
         )
         return np.exp(-r * T) - p / self.strike
 
@@ -115,7 +120,12 @@ class RELN(Product):
         T = self._maturity
         r = market.risk_free_rate
         p = bs_put(
-            1.0, self.strike, T, r, market.volatilities[0], market.dividend_yields[0]
+            1.0,
+            self.strike,
+            T,
+            r,
+            market.volatility_vector[0],
+            market.dividend_vector[0],
         )
         return (self.strike + self.issue_price - 1.0) * np.exp(-r * T) - p
 
@@ -144,8 +154,8 @@ def get_eln_strike_from_issue_price(
         eln = ELN(float(strike), maturity_year_fraction)
         return float(eln.analytic_price(market) - issue_price)  # type: ignore[union-attr]
 
-    (strike,) = fsolve(f, x0=x0, xtol=1e-8)
-    return float(strike)
+    sol = np.asarray(fsolve(f, x0=x0, xtol=1e-8))
+    return float(sol.flat[0])
 
 
 def get_reln_issue_price(
@@ -168,7 +178,7 @@ def get_reln_issue_price(
     T = maturity_year_fraction
     r = market.risk_free_rate
     p = bs_put(
-        1.0, strike, T, r, market.volatilities[0], market.dividend_yields[0]
+        1.0, strike, T, r, market.volatility_vector[0], market.dividend_vector[0]
     )
     # price(strike, issue) = (strike + issue - 1)·e^{-rT} - p = 1
     return (1.0 + p) / np.exp(-r * T) - strike + 1.0

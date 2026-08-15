@@ -48,7 +48,7 @@ def test_put_call_parity(S, K, T, r, sigma, q):
 def test_vectorized_s():
     """S 为数组时返回逐元素价格。"""
     S = np.array([80.0, 100.0, 120.0])
-    c = bs_call(S, 100.0, 1.0, 0.05, 0.2)
+    c = np.asarray(bs_call(S, 100.0, 1.0, 0.05, 0.2))
     assert c.shape == (3,)
     for s, val in zip(S, c, strict=True):
         assert val == pytest.approx(bs_call(s, 100.0, 1.0, 0.05, 0.2), abs=1e-12)
@@ -68,32 +68,73 @@ def test_greeks_match_finite_difference():
         g = bs_greeks(option, S, K, T, r, sigma, q)
         h = 1e-4
         assert g["delta"] == pytest.approx(
-            _fd(lambda s: bs_call(s, K, T, r, sigma, q) if option == "call"
-                else bs_put(s, K, T, r, sigma, q), S, h),
+            _fd(
+                lambda s: (
+                    bs_call(s, K, T, r, sigma, q)
+                    if option == "call"
+                    else bs_put(s, K, T, r, sigma, q)
+                ),
+                S,
+                h,
+            ),
             rel=1e-4,
         )
         assert g["gamma"] == pytest.approx(
-            ((bs_call(S + h, K, T, r, sigma, q) if option == "call"
-              else bs_put(S + h, K, T, r, sigma, q))
-             - 2 * (bs_call(S, K, T, r, sigma, q) if option == "call"
-                    else bs_put(S, K, T, r, sigma, q))
-             + (bs_call(S - h, K, T, r, sigma, q) if option == "call"
-                else bs_put(S - h, K, T, r, sigma, q))) / h**2,
+            (
+                (
+                    bs_call(S + h, K, T, r, sigma, q)
+                    if option == "call"
+                    else bs_put(S + h, K, T, r, sigma, q)
+                )
+                - 2
+                * (
+                    bs_call(S, K, T, r, sigma, q)
+                    if option == "call"
+                    else bs_put(S, K, T, r, sigma, q)
+                )
+                + (
+                    bs_call(S - h, K, T, r, sigma, q)
+                    if option == "call"
+                    else bs_put(S - h, K, T, r, sigma, q)
+                )
+            )
+            / h**2,
             rel=1e-3,
         )
         assert g["vega"] == pytest.approx(
-            _fd(lambda v: bs_call(S, K, T, r, v, q) if option == "call"
-                else bs_put(S, K, T, r, v, q), sigma, 1e-4),
+            _fd(
+                lambda v: (
+                    bs_call(S, K, T, r, v, q)
+                    if option == "call"
+                    else bs_put(S, K, T, r, v, q)
+                ),
+                sigma,
+                1e-4,
+            ),
             rel=1e-4,
         )
         assert g["theta"] == pytest.approx(
-            -_fd(lambda t: bs_call(S, K, t, r, sigma, q) if option == "call"
-                 else bs_put(S, K, t, r, sigma, q), T, 1e-4),
+            -_fd(
+                lambda t: (
+                    bs_call(S, K, t, r, sigma, q)
+                    if option == "call"
+                    else bs_put(S, K, t, r, sigma, q)
+                ),
+                T,
+                1e-4,
+            ),
             rel=1e-4,
         )
         assert g["rho"] == pytest.approx(
-            _fd(lambda x: bs_call(S, K, T, x, sigma, q) if option == "call"
-                else bs_put(S, K, T, x, sigma, q), r, 1e-4),
+            _fd(
+                lambda x: (
+                    bs_call(S, K, T, x, sigma, q)
+                    if option == "call"
+                    else bs_put(S, K, T, x, sigma, q)
+                ),
+                r,
+                1e-4,
+            ),
             rel=1e-4,
         )
 
@@ -187,21 +228,39 @@ def test_digital_greeks_match_fd():
             rel=1e-3,
         )
         assert g["vega"] == pytest.approx(
-            _fd(lambda v: bs_digital_call(S, K, T, r, v)
-                if option == "digital_call" else bs_digital_put(S, K, T, r, v),
-                sigma, 1e-4),
+            _fd(
+                lambda v: (
+                    bs_digital_call(S, K, T, r, v)
+                    if option == "digital_call"
+                    else bs_digital_put(S, K, T, r, v)
+                ),
+                sigma,
+                1e-4,
+            ),
             rel=1e-4,
         )
         assert g["theta"] == pytest.approx(
-            -_fd(lambda t: bs_digital_call(S, K, t, r, sigma)
-                 if option == "digital_call" else bs_digital_put(S, K, t, r, sigma),
-                 T, 1e-4),
+            -_fd(
+                lambda t: (
+                    bs_digital_call(S, K, t, r, sigma)
+                    if option == "digital_call"
+                    else bs_digital_put(S, K, t, r, sigma)
+                ),
+                T,
+                1e-4,
+            ),
             rel=1e-4,
         )
         assert g["rho"] == pytest.approx(
-            _fd(lambda x: bs_digital_call(S, K, T, x, sigma)
-                if option == "digital_call" else bs_digital_put(S, K, T, x, sigma),
-                r, 1e-4),
+            _fd(
+                lambda x: (
+                    bs_digital_call(S, K, T, x, sigma)
+                    if option == "digital_call"
+                    else bs_digital_put(S, K, T, x, sigma)
+                ),
+                r,
+                1e-4,
+            ),
             rel=1e-4,
         )
 
@@ -210,8 +269,9 @@ def test_bs_accepts_arrays_and_scalars():
     """标量与数组输入兼容。"""
     s = 100.0
     arr = np.array([100.0, 100.0])
-    assert np.allclose(bs_call(arr, 100.0, 1.0, 0.05, 0.2),
-                       bs_call(s, 100.0, 1.0, 0.05, 0.2))
+    assert np.allclose(
+        bs_call(arr, 100.0, 1.0, 0.05, 0.2), bs_call(s, 100.0, 1.0, 0.05, 0.2)
+    )
     g = bs_greeks("call", s, 100.0, 1.0, 0.05, 0.2)
     assert set(g) == {"price", "delta", "gamma", "vega", "theta", "rho"}
 
