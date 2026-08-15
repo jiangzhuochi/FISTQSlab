@@ -9,8 +9,7 @@ packages = [{ include = "fistqslab", from = "src" }]
 [tool.poetry.dependencies]
 python = ">=3.10,<3.12"
 Flask = "^2.2.2"
-numpy = "^1.23.2"
-pandas = "^1.4.3"
+numpy = ">=1.23.2,<3"
 matplotlib = "^3.5.3"
 scipy = "^1.9.1"
 

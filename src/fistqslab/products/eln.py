@@ -151,11 +151,13 @@ def get_eln_strike_from_issue_price(
         raise ValueError("反解仅支持单标的")
 
     def f(strike: float) -> float:
-        eln = ELN(float(strike), maturity_year_fraction)
+        # fsolve 回调可能传入 shape (1,) 的数组（scipy >= 1.17），需先收敛为标量
+        strike_f = float(np.asarray(strike).item())
+        eln = ELN(strike_f, maturity_year_fraction)
         return float(eln.analytic_price(market) - issue_price)  # type: ignore[union-attr]
 
     sol = np.asarray(fsolve(f, x0=x0, xtol=1e-8))
-    return float(sol.flat[0])
+    return float(np.atleast_1d(sol)[0])
 
 
 def get_reln_issue_price(
